@@ -1,0 +1,215 @@
+{
+  "product": "TeraPublic",
+  "descriptor": "Public Transparency & Civic Insights",
+  "design_direction": [
+    "clean",
+    "professional",
+    "inclusive",
+    "trustworthy",
+    "data-first",
+    "restrained motion"
+  ],
+  "anti_patterns": [
+    "generic gradient hero by default",
+    "glassmorphism without product reason",
+    "decorative blobs and glowing borders",
+    "unnecessary 3D scenes",
+    "animating all page elements",
+    "using cards for every type of content",
+    "invented metrics or data sources",
+    "multiple animation engines for the same effect"
+  ],
+  "colors": {
+    "primary_navy": {
+      "hex": "#15324B",
+      "usage": [
+        "brand",
+        "headings",
+        "navigation",
+        "strong structure"
+      ]
+    },
+    "secondary_teal": {
+      "hex": "#0F766E",
+      "usage": [
+        "primary actions",
+        "active states",
+        "links"
+      ]
+    },
+    "accent_mint": {
+      "hex": "#50C7B2",
+      "usage": [
+        "limited accents",
+        "selected visualizations"
+      ]
+    },
+    "highlight_amber": {
+      "hex": "#F4B740",
+      "usage": [
+        "warnings",
+        "notable values",
+        "attention highlights"
+      ],
+      "text_rule": "prefer dark text on amber backgrounds"
+    },
+    "background_light": {
+      "hex": "#F7FAFC",
+      "usage": [
+        "app background"
+      ]
+    },
+    "surface_white": {
+      "hex": "#FFFFFF",
+      "usage": [
+        "content surfaces",
+        "dialogs",
+        "tables"
+      ]
+    },
+    "border_slate": {
+      "hex": "#DFE7ED",
+      "usage": [
+        "borders",
+        "dividers"
+      ]
+    },
+    "text_primary": {
+      "hex": "#1F2937",
+      "usage": [
+        "body text",
+        "data labels"
+      ]
+    },
+    "text_secondary": {
+      "hex": "#64748B",
+      "usage": [
+        "metadata",
+        "helper text",
+        "secondary labels"
+      ],
+      "note": "verify WCAG contrast for actual font size/background"
+    },
+    "teal_hover": {
+      "hex": "#0D6B63",
+      "usage": [
+        "hover and pressed states for teal actions"
+      ]
+    }
+  },
+  "approximate_color_distribution": {
+    "background_and_surfaces_percent": 60,
+    "navy_percent": 20,
+    "teal_percent": 10,
+    "mint_percent": 5,
+    "amber_percent": 5,
+    "note": "composition guidance only, not a rigid rule"
+  },
+  "typography": {
+    "heading_and_wordmark": {
+      "family": "Plus Jakarta Sans",
+      "weights": [
+        500,
+        600,
+        700
+      ]
+    },
+    "body_and_ui": {
+      "family": "Inter",
+      "weights": [
+        400,
+        500,
+        600,
+        700
+      ]
+    },
+    "fallback": "system-ui, sans-serif"
+  },
+  "libraries": {
+    "installed_or_existing": [
+      "Next.js App Router",
+      "TypeScript",
+      "Tailwind CSS",
+      "Turbopack"
+    ],
+    "preferred": {
+      "animation": {
+        "library": "Motion",
+        "package": "motion",
+        "import": "motion/react",
+        "rule": "Use for small meaningful UI transitions only when CSS is insufficient."
+      },
+      "component_source": {
+        "library": "React Bits",
+        "rule": "Optional; select and adapt individual components, never copy a whole demo page."
+      },
+      "icons": {
+        "library": "Lucide React",
+        "package": "lucide-react",
+        "rule": "Optional consistent icon family; no decorative icon clutter."
+      },
+      "charts": {
+        "library": "Recharts",
+        "package": "recharts",
+        "rule": "Candidate for monitoring charts only when required by actual data and after inspecting existing dependencies."
+      }
+    },
+    "optional_with_justification": {
+      "GSAP": "Complex timeline or scroll sequence only; do not animate the same component with Motion too.",
+      "Lenis": "Optional public editorial landing page only; not for dashboard/admin flows by default.",
+      "Aceternity UI or Magic UI": "Alternative source for a specific component; do not combine as multiple visual systems.",
+      "Lottie/DotLottie or Rive": "Specific purposeful illustration/state only.",
+      "Three.js / React Three Fiber / Drei": "Not in MVP by default; only for an approved functional 3D requirement."
+    },
+    "do_not_add_by_default": [
+      "React Spring",
+      "Anime.js",
+      "multiple animation engines"
+    ],
+    "install_rule": "Inspect package.json and existing code first; add only dependencies required for the current task."
+  },
+  "motion": {
+    "default": "subtle opacity and transform transitions for meaningful state changes",
+    "avoid": [
+      "scroll-jacking",
+      "excessive bounce",
+      "decorative infinite animation",
+      "animating large data tables on every render"
+    ],
+    "reduced_motion": "respect prefers-reduced-motion"
+  },
+  "content_rules": {
+    "never_fabricate": [
+      "public datasets",
+      "facility information",
+      "project progress",
+      "data sources",
+      "ML predictions"
+    ],
+    "public_routes": "show published data only",
+    "provenance": "show source and update period when known",
+    "demo_data": "must be clearly labeled and must not become production defaults"
+  },
+  "frontend_architecture": {
+    "app_dir": "src/app",
+    "modules_dir": "src/modules",
+    "shared_components_dir": "src/components",
+    "api_client_dir": "src/lib/api",
+    "config_dir": "src/config",
+    "types_dir": "src/types",
+    "rule": "Create modules incrementally; keep backend business logic in FastAPI."
+  },
+  "quality_checks": [
+    "responsive layout",
+    "keyboard interaction",
+    "visible focus",
+    "WCAG contrast",
+    "empty state",
+    "loading state",
+    "error state",
+    "reduced motion",
+    "lint",
+    "typecheck",
+    "build"
+  ]
+}
