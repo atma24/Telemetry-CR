@@ -1,0 +1,28 @@
+flowchart TB
+    subgraph Browser[Browser]
+        UI[Next.js App Router\nTypeScript + Tailwind]
+    end
+
+    subgraph AppBackend[Laravel Application]
+        API[Versioned REST API]
+        AUTH[Sanctum\nSession + CSRF]
+        BIZ[Controllers + Form Requests\nServices / Actions + Policies]
+        DB[(PostgreSQL\nOperational Data)]
+        Q[Queue / Jobs\nImports and long-running work]
+    end
+
+    subgraph AIBackend[Private Python AI Service]
+        RAG[RAG pipeline\nParse • Chunk • Retrieve • Cite]
+        ML[Future ML pipeline\nAudit • Train • Evaluate • Infer]
+        VDB[(Vector storage\npgvector or approved store)]
+    end
+
+    UI <-->|HTTPS + cookies| API
+    API <--> AUTH
+    API --> BIZ
+    BIZ <--> DB
+    BIZ --> Q
+    API <-->|authenticated service request| RAG
+    RAG <--> VDB
+    DB -. approved published sources / defined contract .-> RAG
+    BIZ -. only after a use case is approved .-> ML

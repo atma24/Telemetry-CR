@@ -197,7 +197,9 @@
     "api_client_dir": "src/lib/api",
     "config_dir": "src/config",
     "types_dir": "src/types",
-    "rule": "Create modules incrementally; keep backend business logic in FastAPI."
+    "rule": "Create modules incrementally. Next.js is the UI/API client; Laravel owns backend business logic. Use Next.js Route Handlers only for a documented BFF need.",
+    "api_backend": "Laravel REST API",
+    "ai_backend": "Private Python service for RAG and future ML"
   },
   "quality_checks": [
     "responsive layout",

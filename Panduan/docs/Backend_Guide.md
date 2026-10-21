@@ -1,276 +1,199 @@
-# TeraPublic — Backend Development Guide
-**Versi 1.0 — Rancangan Awal**
+# TeraPublic Backend Guide
 
-## 1. Gambaran Umum
+> **Backend decision:** Laravel is the main API and business-logic backend. Python is a separate AI service for RAG and future ML. Next.js is the frontend; Route Handlers are optional BFF endpoints, not the source of truth for business rules.
 
-TeraPublic adalah platform civic-tech untuk transparansi data publik, monitoring wilayah, fasilitas publik, pembangunan, dan insight berbasis data.
+## 1. Architecture method
 
-### Teknologi utama
+Use a **modular monolith + MVC + Service Layer** for Laravel:
+- **Model:** Eloquent models and relationships.
+- **View:** the public/Admin UI is rendered by Next.js; Laravel API responses use Resources rather than Blade views for this product.
+- **Controller:** thin API controllers validate the request through Form Requests, call services/actions, and return Resources.
+- **Service/Action:** domain and application rules: import orchestration, validation, version creation, publication, feedback state transitions.
+- **Repository:** optional, only when it makes query logic meaningfully reusable/testable. Do not add repository classes by default for every model just to imitate a pattern.
+- **Policy/Middleware:** authorization on the server.
+- **Jobs/Queues:** work that is slow or retryable, such as processing large imports or preparing AI knowledge documents.
 
-- **Frontend:** Next.js App Router
-- **Backend utama:** FastAPI (Python)
-- **Database utama:** PostgreSQL
-- **Vector storage:** pgvector, sebagai opsi awal untuk RAG
-- **Machine Learning:** Python, jenis model ditentukan setelah audit dataset
-- **RAG:** Python service terpisah dari backend utama
+Organize by domain where it improves clarity, while remaining idiomatic to Laravel. Do not implement all behavior in controllers or Eloquent models, and do not split into microservices unnecessarily.
 
-### Prinsip arsitektur
+## 2. Repository layout
 
-1. Backend utama menangani business logic, autentikasi, otorisasi, CRUD, import, validasi, publikasi, dan feedback.
-2. Next.js menangani UI, routing halaman, formulir, serta komunikasi dengan API.
-3. RAG dan ML dipisahkan sebagai layanan khusus agar tidak mencampur tanggung jawab.
-4. Satu database utama menjadi sumber data aplikasi. Data untuk training ML disiapkan melalui pipeline khusus, bukan otomatis melatih semua data.
-5. Struktur kode menggunakan modular architecture yang terinspirasi MVC Laravel, tanpa harus meniru struktur Laravel secara persis.
-
-## 2. Hak Akses
-
-### Masyarakat tanpa login
-
-- Melihat dashboard monitoring publik.
-- Menjelajahi katalog dan detail dataset yang diterbitkan.
-- Melihat informasi wilayah, fasilitas, dan pembangunan yang tersedia.
-- Melihat grafik dan insight yang didukung data.
-
-### Masyarakat dengan akun
-
-- Seluruh akses publik.
-- Mengirim feedback dan masukan.
-- Melihat riwayat serta status feedback miliknya.
-- Menggunakan chatbot RAG.
-
-### Admin
-
-Satu role Admin dengan akses penuh terhadap fungsi administrasi:
-
-- Mengelola master data.
-- Mengimpor dan mengoreksi dataset.
-- Memvalidasi serta menerbitkan data.
-- Mengelola feedback masyarakat.
-- Mengelola sumber pengetahuan chatbot.
-- Melihat riwayat perubahan dan aktivitas administrasi.
-
-Semua operasi yang mengubah data harus divalidasi dan dilindungi dengan otorisasi di backend, bukan hanya disembunyikan pada frontend.
-
-## 3. Modul Backend
-
-### 3.1 Authentication & Authorization
-
-Tanggung jawab:
-- Registrasi masyarakat.
-- Login dan logout.
-- Pengelolaan sesi atau token autentikasi.
-- Pemeriksaan hak akses Admin.
-- Perlindungan endpoint berdasarkan role.
-
-### 3.2 Region Management
-
-Mengelola referensi wilayah administratif.
-
-Fitur:
-- Tambah dan edit wilayah.
-- Import data wilayah.
-- Pencarian dan filter.
-- Validasi hierarki wilayah.
-- Pencegahan duplikasi.
-
-### 3.3 Facility Management
-
-Mengelola data fasilitas publik.
-
-Fitur:
-- Tambah fasilitas secara manual.
-- Import dari dataset.
-- Edit data dan simpan riwayat perubahan.
-- Menghubungkan fasilitas dengan wilayah.
-- Menyimpan kategori, lokasi, sumber, dan atribut yang tersedia.
-- Draft, validasi, publikasi, dan arsip.
-
-### 3.4 Development Project Management
-
-Mengelola informasi proyek pembangunan.
-
-Fitur:
-- Tambah proyek manual atau melalui import.
-- Menghubungkan proyek dengan wilayah.
-- Mencatat instansi, periode, sumber, dan status jika tersedia.
-- Menyimpan progres hanya jika didukung data yang dapat dipertanggungjawabkan.
-- Validasi, publikasi, koreksi, dan arsip.
-
-### 3.5 Dataset Management
-
-Mengelola sumber data lintas topik.
-
-Fitur:
-- Import CSV dan XLSX sebagai cakupan awal.
-- Preview data sebelum disimpan.
-- Pemetaan kolom.
-- Validasi format dan nilai wajib.
-- Pemeriksaan duplikasi.
-- Pencatatan sumber dan periode dataset.
-- Riwayat proses import.
-- Pengelolaan draft dan publikasi.
-
-Integrasi API eksternal otomatis dapat ditambahkan pada tahap lanjutan.
-
-### 3.6 Publication & Data Versioning
-
-Aturan yang telah ditetapkan:
-
-- Data baru disimpan sebagai draft.
-- Data divalidasi sebelum diterbitkan.
-- Koreksi pada data terbit membuat versi baru atau revisi yang tercatat.
-- Versi publik lama tetap tersedia sampai versi koreksi divalidasi dan diterbitkan.
-- Data tidak valid dapat ditarik dari publikasi tanpa menghapus riwayat audit.
-
-### 3.7 Public Monitoring
-
-Menyediakan data yang sudah diterbitkan untuk dashboard publik.
-
-Fitur:
-- Ringkasan indikator.
-- Katalog dan detail dataset.
-- Filter wilayah dan kategori.
-- Grafik, tabel, dan peta jika data lokasi memadai.
-- Insight berdasarkan indikator yang tersedia.
-
-Endpoint publik hanya boleh mengembalikan data yang berstatus terbit dan tidak memuat informasi privat.
-
-### 3.8 Feedback Management
-
-Fitur:
-- Masyarakat mengirim feedback setelah login.
-- Masyarakat melihat riwayat dan status feedback miliknya.
-- Admin meninjau, memberikan tanggapan, dan memperbarui status.
-- Sistem mencatat perubahan status dan tanggapan.
-- Data pribadi pelapor hanya dapat diakses sesuai kewenangan.
-
-Status awal yang diusulkan: Dikirim, Ditinjau, Ditindaklanjuti, dan Selesai. Status penolakan beserta alasannya perlu ditetapkan dalam spesifikasi final.
-
-### 3.9 RAG Service
-
-Tanggung jawab layanan RAG:
-- Mengelola dokumen dan sumber pengetahuan yang disetujui.
-- Memproses dokumen menjadi potongan teks dan embedding.
-- Mengelola indeks pencarian.
-- Mengambil sumber relevan untuk menjawab pertanyaan.
-- Menghasilkan jawaban beserta referensi sumber.
-- Menyatakan keterbatasan ketika sumber tidak mencukupi.
-
-Chatbot memerlukan login sesuai keputusan produk.
-
-### 3.10 Machine Learning Service
-
-Fungsi ML belum ditentukan.
-
-Tahapan:
-1. Audit dataset.
-2. Menentukan masalah yang layak diselesaikan dengan ML.
-3. Menentukan target, fitur, dan kebutuhan data.
-4. Melakukan preprocessing.
-5. Melatih dan mengevaluasi model.
-6. Menyediakan model melalui API jika hasil evaluasinya layak.
-
-Data training dapat berasal dari subset database utama, dataset historis tambahan, atau gabungan dataset. Tidak semua data harus digunakan untuk training.
-
-## 4. Struktur Proyek FastAPI
-
-Struktur awal yang disarankan:
+Suggested top-level layout if Next.js and Laravel are maintained in one repository:
 
 ```text
-backend/
-├── app/
-│   ├── main.py
-│   ├── core/
-│   │   ├── config.py
-│   │   ├── security.py
-│   │   └── exceptions.py
-│   ├── db/
-│   │   ├── session.py
-│   │   └── base.py
-│   ├── modules/
-│   │   ├── auth/
-│   │   ├── users/
-│   │   ├── regions/
-│   │   ├── facilities/
-│   │   ├── projects/
-│   │   ├── datasets/
-│   │   ├── publications/
-│   │   ├── feedback/
-│   │   └── audit_logs/
-│   ├── common/
-│   │   ├── pagination.py
-│   │   └── responses.py
-│   └── tests/
-├── migrations/
-├── requirements.txt
-├── .env.example
-└── README.md
+terapublic/
+├── src/                            # Existing Next.js frontend
+├── public/                         # Next.js public assets
+├── backend-laravel/                # Laravel API (or a separate repo)
+│   ├── app/
+│   │   ├── Models/
+│   │   ├── Http/
+│   │   │   ├── Controllers/Api/V1/
+│   │   │   ├── Requests/
+│   │   │   └── Resources/
+│   │   ├── Services/
+│   │   │   ├── Imports/
+│   │   │   ├── Publications/
+│   │   │   └── Feedback/
+│   │   ├── Actions/
+│   │   ├── Policies/
+│   │   ├── Jobs/
+│   │   ├── Enums/
+│   │   └── Support/
+│   ├── routes/api.php
+│   ├── database/migrations/
+│   ├── database/factories/
+│   ├── database/seeders/
+│   ├── tests/Feature/
+│   └── tests/Unit/
+├── ai-service/                     # Python RAG / future ML service
+│   ├── app/
+│   ├── tests/
+│   ├── pyproject.toml
+│   └── README.md
+├── docs/
+└── package.json
 ```
 
-Setiap modul domain dapat memiliki:
-- `router.py`: definisi endpoint.
-- `schemas.py`: validasi request dan response.
-- `models.py`: representasi tabel database.
-- `service.py`: business logic.
-- `repository.py`: operasi akses data jika pemisahan ini diperlukan.
+A separate repository for Laravel or Python is also valid. Do not move the existing Next.js project just to match this example. If the projects are separate repositories, maintain the same written API contract and ownership boundaries.
 
-Struktur ini bersifat modular. Detail folder dan penggunaan repository dapat disesuaikan ketika implementasi dimulai.
+## 3. Laravel domain organization
 
-RAG dan ML dapat berada di service Python terpisah dengan dependensi masing-masing.
+Use predictable names and keep related files grouped by domain. Example for `regions`:
 
-## 5. Prinsip Database
+```text
+app/
+├── Models/Region.php
+├── Models/RegionVersion.php
+├── Http/Controllers/Api/V1/RegionController.php
+├── Http/Requests/Regions/StoreRegionRequest.php
+├── Http/Requests/Regions/UpdateRegionRequest.php
+├── Http/Resources/RegionResource.php
+├── Services/Regions/RegionService.php
+├── Policies/RegionPolicy.php
+└── Jobs/Imports/ImportRegionsJob.php
+```
 
-Database utama menyimpan data aplikasi dan sumber data yang sudah dikelola.
+The exact namespace/folder can be made more domain-oriented if it stays autoloadable and consistent. Apply the same convention to facilities, projects, datasets, publications, and feedback. Do not create empty modules for every future feature up front.
 
-Kelompok entitas awal:
-- Pengguna dan role.
-- Wilayah administratif.
-- Kategori dan sumber data.
-- Dataset serta riwayat import.
-- Data fasilitas.
-- Data proyek pembangunan.
-- Versi data dan publikasi.
-- Feedback dan riwayat status.
-- Audit log.
+### Request flow
 
-Tabel detail, foreign key, serta relasi final ditentukan melalui ERD setelah alur bisnis dikunci.
+1. Request enters `routes/api.php` under an `/api/v1` prefix or equivalent versioned route group.
+2. Middleware checks authentication when required and applies rate limits where appropriate.
+3. A Form Request validates shape and input constraints.
+4. Controller calls a Service/Action for the business operation.
+5. Service coordinates Eloquent transactions, versioning, provenance, and jobs.
+6. API Resource returns a stable JSON response.
+7. Feature/Unit tests cover access rules and business invariants.
 
-Untuk RAG, penyimpanan dokumen, potongan teks, embedding, dan metadata dapat dirancang sesuai strategi retrieval. Untuk ML, artefak model dan hasil evaluasi dikelola terpisah dari tabel operasional utama.
+## 4. Main Laravel modules
 
-## 6. Urutan Implementasi
+### Auth and users
+- Citizen registration/login/logout/current user.
+- One Admin role, provisioned securely; avoid public self-registration as Admin.
+- Server-side authorization using middleware and policies.
+- Password hashing via Laravel's password hashing tools.
 
-1. Audit dataset DKI Jakarta dan tetapkan kandidat dataset MVP.
-2. Finalisasi alur bisnis dan ERD.
-3. Buat fondasi FastAPI, konfigurasi environment, koneksi database, dan migrasi.
-4. Implementasikan autentikasi dan otorisasi.
-5. Implementasikan master wilayah.
-6. Implementasikan fasilitas dan pembangunan.
-7. Implementasikan import, validasi, versioning, dan publikasi.
-8. Implementasikan endpoint monitoring publik.
-9. Implementasikan feedback dan audit log.
-10. Integrasikan RAG.
-11. Tentukan dan implementasikan ML setelah audit dataset.
-12. Lakukan pengujian integrasi, keamanan, dan kualitas data.
+### Regions
+- Create/import/update region identity and versions.
+- Validate hierarchy and official codes when available.
+- Prevent duplicate identities and invalid parent-child relationships.
 
-## 7. Keputusan yang Sudah Disepakati
+### Facilities and projects
+- Support both manual entry and import.
+- Store structured fields needed for filtering/reporting in typed columns.
+- Store less common/source-specific attributes in JSONB only when justified by actual datasets.
+- Retain original imported values and source references.
+- Projects may relate to multiple regions through a join table such as `project_version_regions` when the source supports it.
 
-- Masyarakat dapat melihat informasi publik tanpa login.
-- Feedback dan chatbot memerlukan login.
-- Admin hanya memiliki satu role dengan akses penuh.
-- Master data terdiri atas wilayah, fasilitas publik, dan pembangunan.
-- Fasilitas dan pembangunan dapat ditambahkan manual maupun diimpor.
-- Data import dapat dikoreksi, tetapi sumber asli dan riwayat perubahan tetap disimpan.
-- Data harus melalui draft, validasi, dan publikasi.
-- ML tidak melatih seluruh database secara otomatis.
-- Fungsi ML dan algoritmanya ditentukan setelah audit dataset.
-- Next.js menggunakan arsitektur modular yang terinspirasi MVC; FastAPI menjadi backend utama.
+### Datasets and import jobs
+- Dataset catalog and version records.
+- Upload and safely store CSV/XLSX files outside executable/public paths.
+- Preview and map columns before import.
+- Validate row schema, types, required fields, region/category references and duplicates.
+- Record accepted/rejected row counts and row-level errors.
+- Use queued jobs for large imports; do not make long imports synchronous by default.
+- Make import retries idempotent or require explicit conflict handling so retries do not create duplicates.
 
-## 8. Hal yang Masih Perlu Diputuskan
+### Publication/versioning
+- State flow: `draft` -> `validating` -> `published`; prior version may become `superseded`; withdrawn records may be `archived`/unpublished while retained for audit.
+- Keep the current published version available until a new version passes validation and publication.
+- Use transactions to switch current published version safely.
+- Enforce at most one current published version per identity/dataset through database constraints or a clear current-version strategy, not only UI checks.
+- Never expose drafts or validation-error details to public endpoints.
 
-- Dataset resmi yang benar-benar digunakan untuk MVP.
-- Detail status feedback dan kebijakan penolakan.
-- Strategi autentikasi dan pengelolaan sesi antara Next.js dan FastAPI.
-- Skema versioning dan rollback data yang terbit.
-- Sumber pengetahuan serta kebijakan sitasi chatbot.
-- Use case ML berdasarkan hasil audit dataset.
-- Skema ERD dan kontrak API final.
+### Feedback and audit
+- Feedback statuses: `submitted`, `in_review`, `in_progress`, `resolved`, `rejected`.
+- Rejected feedback must have an explanatory reason.
+- A feedback item may be general or reference at most one target among facility, project, region, or dataset; encode this rule in validation and preferably a database constraint.
+- Feedback history is append-only in `feedback_events`.
+- Audit significant edits, imports, validation/publication, withdrawal, and feedback status changes.
+
+## 5. Authentication integration with Next.js
+
+Preferred default for a first-party web app: **Laravel Sanctum SPA authentication using secure cookie/session auth**, not a custom JWT implementation by default. Official Sanctum guidance says the SPA and API should share a top-level domain, though they can use different subdomains. Configure stateful domains, credentials, CSRF initialization, and CORS accordingly.
+
+Example production domain arrangement:
+- `app.example.id` — Next.js.
+- `api.example.id` — Laravel.
+
+The actual domains are not decided yet. For local development, configure localhost hosts/ports and Sanctum stateful domains deliberately. If the deployment cannot share a top-level domain, revisit the authentication architecture before implementation.
+
+Security rules:
+- Use `HttpOnly`, `Secure` in production, and appropriate `SameSite` cookie settings.
+- Use Laravel's CSRF protection for stateful mutations.
+- Do not store long-lived session credentials in `localStorage`.
+- Configure allowed CORS origins precisely; do not use wildcard origins with credentials.
+- Send requests with credentials and appropriate `Accept: application/json` / origin headers.
+- Use middleware plus policies for Admin and resource ownership.
+- Rate-limit login, registration, feedback submission, and chatbot requests.
+- Use Laravel database session storage if server-side database-backed sessions are desired; the generated `sessions` table must use the UUID-compatible `user_id` type if the User primary key is UUID.
+
+Install/configure Sanctum using the official instructions for the chosen Laravel version. In current Laravel docs, `php artisan install:api` is the documented API/Sanctum setup path; confirm the generated files against the project before running commands.
+
+## 6. API contract
+
+Version the external API (`/api/v1/...`) and document it using Laravel's generated OpenAPI tooling or an approved API specification. Keep response shapes and error formats consistent. Example endpoint families (indicative, not a full locked endpoint list):
+
+- Public: `GET /api/v1/dashboard`, `GET /api/v1/datasets`, `GET /api/v1/regions`, `GET /api/v1/facilities`, `GET /api/v1/projects`.
+- Auth: register/login/logout/current user according to Sanctum SPA flow.
+- Admin: CRUD and import/validation/publication endpoints for reference/domain data.
+- Feedback: authenticated citizen create/list-own/show-own; Admin list/review/respond/update status.
+- RAG: Laravel validates user/session and forwards a scoped request to the private Python AI service, then stores/returns the chat result and citations according to the documented ownership strategy.
+- ML: only add inference endpoints after an ML use case is approved.
+
+Do not create duplicate endpoints in Next.js without a BFF need. Keep the frontend API client in `src/lib/api/` focused on requests, response types, error mapping, and credentials.
+
+## 7. Python AI service boundary
+
+Python service handles AI-specific work only:
+- RAG document parsing, chunking, embeddings, retrieval, generation and evidence/citation payload.
+- Future ML data preparation, training, evaluation, model artifact/version management, and inference after audit.
+
+Laravel remains the authority for the authenticated user, role, public publication state, and application records. Keep the Python service private to the application network where possible. Authenticate service-to-service calls, use timeouts, validate payloads, avoid exposing internal error details, and define data ownership before allowing Python to write any database table.
+
+For RAG, do not index drafts or private citizen feedback as public knowledge unless that use is explicitly approved. Store the source/version metadata needed to show citations and invalidate stale chunks after a source changes.
+
+## 8. Environment and secrets
+
+- Keep secrets in `.env`; commit only `.env.example` with non-secret placeholders.
+- Do not prefix server secrets with `NEXT_PUBLIC_`.
+- Use separate environment variables for frontend public API base URL, Laravel database connection, AI-service base URL, and service credentials.
+- Never log passwords, cookies, session IDs, API keys, full private feedback, or unredacted auth headers.
+- Store uploaded source files in private storage with size/type validation; public serving requires a deliberate publication-safe path.
+
+## 9. Testing expectations
+
+- Feature tests: public-only published reads, citizen ownership, Admin policies, validation, import conflict handling, publication/version-switch transactions, feedback rejection reason, and audit trails.
+- Unit tests: import mapping, data normalization, version selection and business services.
+- AI service tests: source citations, insufficient-evidence behavior, input limits, timeouts, and access boundary.
+- Frontend tests/checks: typed API contract, loading/empty/error states, lint, typecheck, responsive layout and accessibility.
+
+## 10. References
+
+Use the version-matched official docs when implementing:
+- Laravel routing/API: https://laravel.com/docs/13.x/routing
+- Laravel Sanctum: https://laravel.com/docs/13.x/sanctum
+- Next.js Backend for Frontend guidance: https://nextjs.org/docs/app/guides/backend-for-frontend
+- Next.js Route Handlers: https://nextjs.org/docs/app/getting-started/route-handlers
+
+This is an architectural guide, not a command to implement all modules at once. Follow `docs/IMPLEMENTATION_PLAN.md` and work phase by phase.

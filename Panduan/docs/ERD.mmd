@@ -8,6 +8,14 @@ erDiagram
         string account_status
         datetime created_at
     }
+    SESSIONS {
+        string id PK
+        uuid user_id FK
+        string ip_address
+        text user_agent
+        text payload
+        int last_activity
+    }
     REGIONS {
         uuid id PK
         datetime created_at
@@ -21,6 +29,7 @@ erDiagram
         string level
         uuid parent_region_id FK
         uuid source_id FK
+        uuid import_job_id FK
         json source_original_data
         string publication_status
         uuid created_by FK
@@ -38,7 +47,7 @@ erDiagram
         string name
         string source_type
         string source_url
-        string license_info
+        text license_info
     }
     FACILITIES {
         uuid id PK
@@ -57,8 +66,8 @@ erDiagram
         decimal longitude
         json attributes
         uuid source_id FK
-        json source_original_data
         uuid import_job_id FK
+        json source_original_data
         string publication_status
         uuid created_by FK
         uuid reviewed_by FK
@@ -75,7 +84,6 @@ erDiagram
         int version_no
         string name
         uuid category_id FK
-        uuid region_id FK
         string agency
         date start_date
         date planned_end_date
@@ -83,12 +91,18 @@ erDiagram
         string project_status
         json attributes
         uuid source_id FK
-        json source_original_data
         uuid import_job_id FK
+        json source_original_data
         string publication_status
         uuid created_by FK
         uuid reviewed_by FK
         datetime published_at
+    }
+    PROJECT_VERSION_REGIONS {
+        uuid id PK
+        uuid project_version_id FK
+        uuid region_id FK
+        boolean is_primary
     }
     DATASETS {
         uuid id PK
@@ -141,9 +155,12 @@ erDiagram
         uuid user_id FK
         uuid facility_id FK
         uuid project_id FK
+        uuid region_id FK
+        uuid dataset_id FK
         string subject
         text message
         string status
+        text rejection_reason
         datetime created_at
         datetime updated_at
     }
@@ -203,28 +220,35 @@ erDiagram
         int citation_number
     }
 
-    USERS ||--o{ REGION_VERSIONS : creates
+    USERS o|--o{ SESSIONS : has_sessions
+    USERS o|--o{ REGION_VERSIONS : creates
     USERS o|--o{ REGION_VERSIONS : reviews
     REGIONS ||--|{ REGION_VERSIONS : has_versions
     REGIONS o|--o{ REGION_VERSIONS : parent_of
     DATA_SOURCES o|--o{ REGION_VERSIONS : sourced_from
-    USERS ||--o{ FACILITY_VERSIONS : creates
-    USERS o|--o{ FACILITY_VERSIONS : reviews
+    IMPORT_JOBS o|--o{ REGION_VERSIONS : imported_by
+
+    CATEGORIES o|--o{ CATEGORIES : parent_category
+    CATEGORIES ||--o{ DATASETS : categorizes
+    USERS ||--o{ DATASETS : creates
+
     FACILITIES ||--|{ FACILITY_VERSIONS : has_versions
     REGIONS ||--o{ FACILITY_VERSIONS : located_in
     CATEGORIES ||--o{ FACILITY_VERSIONS : classifies
     DATA_SOURCES o|--o{ FACILITY_VERSIONS : sourced_from
     IMPORT_JOBS o|--o{ FACILITY_VERSIONS : imported_by
-    USERS ||--o{ PROJECT_VERSIONS : creates
-    USERS o|--o{ PROJECT_VERSIONS : reviews
+    USERS ||--o{ FACILITY_VERSIONS : creates
+    USERS o|--o{ FACILITY_VERSIONS : reviews
+
     PROJECTS ||--|{ PROJECT_VERSIONS : has_versions
-    REGIONS ||--o{ PROJECT_VERSIONS : located_in
+    PROJECT_VERSIONS ||--|{ PROJECT_VERSION_REGIONS : maps_regions
+    REGIONS ||--o{ PROJECT_VERSION_REGIONS : covers_region
     CATEGORIES ||--o{ PROJECT_VERSIONS : classifies
     DATA_SOURCES o|--o{ PROJECT_VERSIONS : sourced_from
     IMPORT_JOBS o|--o{ PROJECT_VERSIONS : imported_by
-    CATEGORIES o|--o{ CATEGORIES : parent_category
-    CATEGORIES ||--o{ DATASETS : categorizes
-    USERS ||--o{ DATASETS : creates
+    USERS ||--o{ PROJECT_VERSIONS : creates
+    USERS o|--o{ PROJECT_VERSIONS : reviews
+
     DATASETS ||--|{ DATASET_VERSIONS : has_versions
     DATASET_VERSIONS o|--o{ DATASET_VERSIONS : based_on
     DATASET_VERSIONS ||--o{ DATASET_ROWS : contains
@@ -234,16 +258,20 @@ erDiagram
     USERS o|--o{ DATASET_VERSIONS : reviews
     DATA_SOURCES o|--o{ IMPORT_JOBS : sourced_from
     USERS ||--o{ IMPORT_JOBS : starts
+
     USERS ||--o{ FEEDBACKS : submits
     FACILITIES o|--o{ FEEDBACKS : concerns
     PROJECTS o|--o{ FEEDBACKS : concerns
+    REGIONS o|--o{ FEEDBACKS : concerns
+    DATASETS o|--o{ FEEDBACKS : concerns
     FEEDBACKS ||--o{ FEEDBACK_EVENTS : has_history
     USERS ||--o{ FEEDBACK_EVENTS : acts
     USERS o|--o{ AUDIT_LOGS : performs
-    DATA_SOURCES o|--o{ KNOWLEDGE_DOCUMENTS : sourced_from
+
+    DATA_SOURCES o|--o{ KNOWLEDGE_DOCUMENTS : references
     USERS ||--o{ KNOWLEDGE_DOCUMENTS : manages
-    KNOWLEDGE_DOCUMENTS ||--o{ DOCUMENT_CHUNKS : split_into
+    KNOWLEDGE_DOCUMENTS ||--o{ DOCUMENT_CHUNKS : splits_into
     USERS ||--o{ CHAT_SESSIONS : owns
     CHAT_SESSIONS ||--|{ CHAT_MESSAGES : contains
     CHAT_MESSAGES ||--o{ CHAT_MESSAGE_SOURCES : cites
-    DOCUMENT_CHUNKS ||--o{ CHAT_MESSAGE_SOURCES : cited_by
+    DOCUMENT_CHUNKS ||--o{ CHAT_MESSAGE_SOURCES : referenced_by

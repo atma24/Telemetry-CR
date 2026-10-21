@@ -1,63 +1,1309 @@
 {
   "spec_name": "TeraPublic Conceptual Database Schema",
-  "spec_version": "1.0-draft",
-  "status": "planning-baseline",
+  "spec_version": "1.1-draft",
+  "status": "planning-baseline-laravel-stack",
   "database": "PostgreSQL",
   "notes": [
-    "This is a conceptual schema, not executable DDL.",
-    "Finalize columns, types, constraints, indexes and versioning semantics before migrations.",
+    "This is a conceptual schema, not executable DDL or Laravel migrations.",
+    "Laravel migrations and Eloquent own the operational product schema.",
+    "Finalize columns, types, constraints, indexes, and versioning before migrations.",
     "Use one Admin role; citizen access rules are defined in docs/PROJECT_SPEC.md.",
-    "ML use case and model are intentionally undecided pending dataset audit."
+    "ML use case and model are intentionally undecided pending dataset audit.",
+    "Python AI service must not mutate Laravel-owned tables directly unless table ownership and service contract are explicitly documented."
   ],
   "enums": {
-    "user_role": ["citizen", "admin"],
-    "publication_status": ["draft", "validating", "published", "superseded", "archived"],
-    "import_status": ["uploaded", "processing", "completed", "completed_with_errors", "failed"],
-    "feedback_status": ["submitted", "in_review", "in_progress", "resolved", "rejected_pending_decision"],
-    "chat_message_role": ["user", "assistant"]
+    "user_role": [
+      "citizen",
+      "admin"
+    ],
+    "publication_status": [
+      "draft",
+      "validating",
+      "published",
+      "superseded",
+      "archived"
+    ],
+    "import_status": [
+      "uploaded",
+      "processing",
+      "completed",
+      "completed_with_errors",
+      "failed"
+    ],
+    "feedback_status": [
+      "submitted",
+      "in_review",
+      "in_progress",
+      "resolved",
+      "rejected"
+    ],
+    "chat_message_role": [
+      "user",
+      "assistant"
+    ]
   },
   "entities": [
-    {"name":"users","purpose":"Citizen and Admin accounts","fields":[{"name":"id","type":"uuid","pk":true},{"name":"name","type":"varchar","required":true},{"name":"email","type":"varchar","required":true,"unique":true},{"name":"password_hash","type":"varchar","required":true},{"name":"role","type":"user_role","required":true},{"name":"account_status","type":"varchar","required":true},{"name":"created_at","type":"timestamptz","required":true}]},
-    {"name":"regions","purpose":"Stable identity for an administrative region","fields":[{"name":"id","type":"uuid","pk":true},{"name":"created_at","type":"timestamptz","required":true}]},
-    {"name":"region_versions","purpose":"Versioned region attributes and publication history","fields":[{"name":"id","type":"uuid","pk":true},{"name":"region_id","type":"uuid","fk":"regions.id","required":true},{"name":"version_no","type":"integer","required":true},{"name":"code","type":"varchar","required":true},{"name":"name","type":"varchar","required":true},{"name":"level","type":"varchar","required":true},{"name":"parent_region_id","type":"uuid","fk":"regions.id","nullable":true},{"name":"source_id","type":"uuid","fk":"data_sources.id","nullable":true},{"name":"import_job_id","type":"uuid","fk":"import_jobs.id","nullable":true},{"name":"source_original_data","type":"jsonb","nullable":true},{"name":"publication_status","type":"publication_status","required":true},{"name":"created_by","type":"uuid","fk":"users.id","required":true},{"name":"reviewed_by","type":"uuid","fk":"users.id","nullable":true},{"name":"published_at","type":"timestamptz","nullable":true}],"constraints":["unique(region_id, version_no)","At most one current published version per region"]},
-    {"name":"categories","purpose":"Cross-topic category taxonomy","fields":[{"name":"id","type":"uuid","pk":true},{"name":"parent_id","type":"uuid","fk":"categories.id","nullable":true},{"name":"name","type":"varchar","required":true},{"name":"slug","type":"varchar","required":true,"unique":true}]},
-    {"name":"data_sources","purpose":"Source registry, attribution, and provenance","fields":[{"name":"id","type":"uuid","pk":true},{"name":"name","type":"varchar","required":true},{"name":"source_type","type":"varchar","required":true},{"name":"source_url","type":"text","nullable":true},{"name":"license_info","type":"text","nullable":true},{"name":"notes","type":"text","nullable":true}]},
-    {"name":"facilities","purpose":"Stable identity for a public facility","fields":[{"name":"id","type":"uuid","pk":true},{"name":"external_key","type":"varchar","nullable":true},{"name":"created_at","type":"timestamptz","required":true}],"constraints":["External key uniqueness must be scoped to the source where applicable"]},
-    {"name":"facility_versions","purpose":"Versioned facility attributes","fields":[{"name":"id","type":"uuid","pk":true},{"name":"facility_id","type":"uuid","fk":"facilities.id","required":true},{"name":"version_no","type":"integer","required":true},{"name":"name","type":"varchar","required":true},{"name":"category_id","type":"uuid","fk":"categories.id","required":true},{"name":"region_id","type":"uuid","fk":"regions.id","required":true},{"name":"address","type":"text","nullable":true},{"name":"latitude","type":"numeric","nullable":true},{"name":"longitude","type":"numeric","nullable":true},{"name":"attributes","type":"jsonb","nullable":true},{"name":"source_id","type":"uuid","fk":"data_sources.id","nullable":true},{"name":"import_job_id","type":"uuid","fk":"import_jobs.id","nullable":true},{"name":"source_original_data","type":"jsonb","nullable":true},{"name":"publication_status","type":"publication_status","required":true},{"name":"created_by","type":"uuid","fk":"users.id","required":true},{"name":"reviewed_by","type":"uuid","fk":"users.id","nullable":true},{"name":"published_at","type":"timestamptz","nullable":true}],"constraints":["unique(facility_id, version_no)","Latitude and longitude must be in valid ranges when present","At most one current published version per facility"]},
-    {"name":"projects","purpose":"Stable identity for a development project","fields":[{"name":"id","type":"uuid","pk":true},{"name":"external_key","type":"varchar","nullable":true},{"name":"created_at","type":"timestamptz","required":true}]},
-    {"name":"project_versions","purpose":"Versioned development project attributes","fields":[{"name":"id","type":"uuid","pk":true},{"name":"project_id","type":"uuid","fk":"projects.id","required":true},{"name":"version_no","type":"integer","required":true},{"name":"name","type":"varchar","required":true},{"name":"category_id","type":"uuid","fk":"categories.id","required":true},{"name":"region_id","type":"uuid","fk":"regions.id","required":true},{"name":"agency","type":"varchar","nullable":true},{"name":"start_date","type":"date","nullable":true},{"name":"planned_end_date","type":"date","nullable":true},{"name":"progress_percentage","type":"numeric","nullable":true},{"name":"project_status","type":"varchar","nullable":true},{"name":"attributes","type":"jsonb","nullable":true},{"name":"source_id","type":"uuid","fk":"data_sources.id","nullable":true},{"name":"import_job_id","type":"uuid","fk":"import_jobs.id","nullable":true},{"name":"source_original_data","type":"jsonb","nullable":true},{"name":"publication_status","type":"publication_status","required":true},{"name":"created_by","type":"uuid","fk":"users.id","required":true},{"name":"reviewed_by","type":"uuid","fk":"users.id","nullable":true},{"name":"published_at","type":"timestamptz","nullable":true}],"constraints":["unique(project_id, version_no)","Progress must be between 0 and 100 when present","At most one current published version per project"]},
-    {"name":"datasets","purpose":"Dataset catalog identity and metadata","fields":[{"name":"id","type":"uuid","pk":true},{"name":"title","type":"varchar","required":true},{"name":"slug","type":"varchar","required":true,"unique":true},{"name":"description","type":"text","nullable":true},{"name":"category_id","type":"uuid","fk":"categories.id","nullable":true},{"name":"lifecycle_status","type":"varchar","required":true},{"name":"created_by","type":"uuid","fk":"users.id","required":true},{"name":"created_at","type":"timestamptz","required":true}]},
-    {"name":"dataset_versions","purpose":"Dataset schema, source file, version, and publication state","fields":[{"name":"id","type":"uuid","pk":true},{"name":"dataset_id","type":"uuid","fk":"datasets.id","required":true},{"name":"version_no","type":"integer","required":true},{"name":"base_version_id","type":"uuid","fk":"dataset_versions.id","nullable":true},{"name":"source_id","type":"uuid","fk":"data_sources.id","nullable":true},{"name":"import_job_id","type":"uuid","fk":"import_jobs.id","nullable":true},{"name":"publication_status","type":"publication_status","required":true},{"name":"schema_definition","type":"jsonb","nullable":true},{"name":"original_file_path","type":"text","nullable":true},{"name":"created_by","type":"uuid","fk":"users.id","required":true},{"name":"reviewed_by","type":"uuid","fk":"users.id","nullable":true},{"name":"published_at","type":"timestamptz","nullable":true}],"constraints":["unique(dataset_id, version_no)","At most one current published version per dataset"]},
-    {"name":"dataset_rows","purpose":"Rows of a flexible tabular dataset version","fields":[{"name":"id","type":"uuid","pk":true},{"name":"dataset_version_id","type":"uuid","fk":"dataset_versions.id","required":true},{"name":"row_number","type":"integer","required":true},{"name":"row_data","type":"jsonb","required":true},{"name":"validation_status","type":"varchar","required":true},{"name":"validation_errors","type":"jsonb","nullable":true}],"constraints":["unique(dataset_version_id, row_number)","JSONB approach must be validated against actual dataset sizes and query needs"]},
-    {"name":"import_jobs","purpose":"Track file/source import and validation results","fields":[{"name":"id","type":"uuid","pk":true},{"name":"target_type","type":"varchar","required":true},{"name":"source_id","type":"uuid","fk":"data_sources.id","nullable":true},{"name":"original_filename","type":"varchar","nullable":true},{"name":"file_path","type":"text","nullable":true},{"name":"status","type":"import_status","required":true},{"name":"total_rows","type":"integer","nullable":true},{"name":"accepted_rows","type":"integer","nullable":true},{"name":"rejected_rows","type":"integer","nullable":true},{"name":"initiated_by","type":"uuid","fk":"users.id","required":true},{"name":"created_at","type":"timestamptz","required":true},{"name":"finished_at","type":"timestamptz","nullable":true}]},
-    {"name":"feedbacks","purpose":"Citizen feedback or suggestions, optionally related to a facility or project","fields":[{"name":"id","type":"uuid","pk":true},{"name":"user_id","type":"uuid","fk":"users.id","required":true},{"name":"facility_id","type":"uuid","fk":"facilities.id","nullable":true},{"name":"project_id","type":"uuid","fk":"projects.id","nullable":true},{"name":"subject","type":"varchar","required":true},{"name":"message","type":"text","required":true},{"name":"status","type":"feedback_status","required":true},{"name":"created_at","type":"timestamptz","required":true},{"name":"updated_at","type":"timestamptz","required":true}],"constraints":["Only owner can read citizen feedback history; Admin can manage all feedback","Confirm whether a feedback may reference a facility and project simultaneously"]},
-    {"name":"feedback_events","purpose":"Append-only history of feedback status changes and responses","fields":[{"name":"id","type":"uuid","pk":true},{"name":"feedback_id","type":"uuid","fk":"feedbacks.id","required":true},{"name":"actor_user_id","type":"uuid","fk":"users.id","required":true},{"name":"old_status","type":"varchar","nullable":true},{"name":"new_status","type":"varchar","required":true},{"name":"response_message","type":"text","nullable":true},{"name":"created_at","type":"timestamptz","required":true}]},
-    {"name":"audit_logs","purpose":"Trace important admin/data actions","fields":[{"name":"id","type":"uuid","pk":true},{"name":"actor_user_id","type":"uuid","fk":"users.id","nullable":true},{"name":"action","type":"varchar","required":true},{"name":"entity_type","type":"varchar","required":true},{"name":"entity_id","type":"uuid","nullable":true},{"name":"old_data","type":"jsonb","nullable":true},{"name":"new_data","type":"jsonb","nullable":true},{"name":"created_at","type":"timestamptz","required":true}]},
-    {"name":"knowledge_documents","purpose":"Approved RAG source documents","fields":[{"name":"id","type":"uuid","pk":true},{"name":"source_id","type":"uuid","fk":"data_sources.id","nullable":true},{"name":"title","type":"varchar","required":true},{"name":"file_path","type":"text","required":true},{"name":"processing_status","type":"varchar","required":true},{"name":"created_by","type":"uuid","fk":"users.id","required":true},{"name":"created_at","type":"timestamptz","required":true}]},
-    {"name":"document_chunks","purpose":"RAG chunks and metadata; embedding storage can be pgvector or external vector store","fields":[{"name":"id","type":"uuid","pk":true},{"name":"document_id","type":"uuid","fk":"knowledge_documents.id","required":true},{"name":"chunk_index","type":"integer","required":true},{"name":"content","type":"text","required":true},{"name":"embedding_reference","type":"text","nullable":true},{"name":"metadata","type":"jsonb","nullable":true}],"constraints":["Do not lock vector storage choice until RAG implementation"]},
-    {"name":"chat_sessions","purpose":"A citizen-owned chatbot session","fields":[{"name":"id","type":"uuid","pk":true},{"name":"user_id","type":"uuid","fk":"users.id","required":true},{"name":"title","type":"varchar","nullable":true},{"name":"created_at","type":"timestamptz","required":true}]},
-    {"name":"chat_messages","purpose":"Messages in one chat session","fields":[{"name":"id","type":"uuid","pk":true},{"name":"session_id","type":"uuid","fk":"chat_sessions.id","required":true},{"name":"role","type":"chat_message_role","required":true},{"name":"content","type":"text","required":true},{"name":"created_at","type":"timestamptz","required":true}]},
-    {"name":"chat_message_sources","purpose":"Citations connecting assistant messages to retrieved chunks","fields":[{"name":"id","type":"uuid","pk":true},{"name":"message_id","type":"uuid","fk":"chat_messages.id","required":true},{"name":"chunk_id","type":"uuid","fk":"document_chunks.id","required":true},{"name":"citation_number","type":"integer","required":true}]}
+    {
+      "name": "users",
+      "purpose": "Citizen and Admin accounts",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "name",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "email",
+          "type": "varchar",
+          "required": true,
+          "unique": true
+        },
+        {
+          "name": "password_hash",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "role",
+          "type": "user_role",
+          "required": true
+        },
+        {
+          "name": "account_status",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sessions",
+      "purpose": "Laravel server-side session storage for first-party SPA authentication",
+      "fields": [
+        {
+          "name": "id",
+          "type": "varchar",
+          "pk": true
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "fk": "users.id",
+          "nullable": true
+        },
+        {
+          "name": "ip_address",
+          "type": "varchar",
+          "nullable": true
+        },
+        {
+          "name": "user_agent",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "payload",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "last_activity",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "constraints": [
+        "Use Laravel-compatible session storage schema; align user_id with UUID user primary key."
+      ]
+    },
+    {
+      "name": "regions",
+      "purpose": "Stable identity for an administrative region",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "region_versions",
+      "purpose": "Versioned region attributes and publication history",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "region_id",
+          "type": "uuid",
+          "fk": "regions.id",
+          "required": true
+        },
+        {
+          "name": "version_no",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "code",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "level",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "parent_region_id",
+          "type": "uuid",
+          "fk": "regions.id",
+          "nullable": true
+        },
+        {
+          "name": "source_id",
+          "type": "uuid",
+          "fk": "data_sources.id",
+          "nullable": true
+        },
+        {
+          "name": "import_job_id",
+          "type": "uuid",
+          "fk": "import_jobs.id",
+          "nullable": true
+        },
+        {
+          "name": "source_original_data",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "publication_status",
+          "type": "publication_status",
+          "required": true
+        },
+        {
+          "name": "created_by",
+          "type": "uuid",
+          "fk": "users.id",
+          "required": true
+        },
+        {
+          "name": "reviewed_by",
+          "type": "uuid",
+          "fk": "users.id",
+          "nullable": true
+        },
+        {
+          "name": "published_at",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      ],
+      "constraints": [
+        "unique(region_id, version_no)",
+        "At most one current published version per region"
+      ]
+    },
+    {
+      "name": "categories",
+      "purpose": "Cross-topic category taxonomy",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "parent_id",
+          "type": "uuid",
+          "fk": "categories.id",
+          "nullable": true
+        },
+        {
+          "name": "name",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "slug",
+          "type": "varchar",
+          "required": true,
+          "unique": true
+        }
+      ]
+    },
+    {
+      "name": "data_sources",
+      "purpose": "Source registry, attribution, and provenance",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "name",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "source_type",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "source_url",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "license_info",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "facilities",
+      "purpose": "Stable identity for a public facility",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "external_key",
+          "type": "varchar",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "required": true
+        }
+      ],
+      "constraints": [
+        "External key uniqueness must be scoped to the source where applicable"
+      ]
+    },
+    {
+      "name": "facility_versions",
+      "purpose": "Versioned facility attributes",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "facility_id",
+          "type": "uuid",
+          "fk": "facilities.id",
+          "required": true
+        },
+        {
+          "name": "version_no",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "category_id",
+          "type": "uuid",
+          "fk": "categories.id",
+          "required": true
+        },
+        {
+          "name": "region_id",
+          "type": "uuid",
+          "fk": "regions.id",
+          "required": true
+        },
+        {
+          "name": "address",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "latitude",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "longitude",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "attributes",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "source_id",
+          "type": "uuid",
+          "fk": "data_sources.id",
+          "nullable": true
+        },
+        {
+          "name": "import_job_id",
+          "type": "uuid",
+          "fk": "import_jobs.id",
+          "nullable": true
+        },
+        {
+          "name": "source_original_data",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "publication_status",
+          "type": "publication_status",
+          "required": true
+        },
+        {
+          "name": "created_by",
+          "type": "uuid",
+          "fk": "users.id",
+          "required": true
+        },
+        {
+          "name": "reviewed_by",
+          "type": "uuid",
+          "fk": "users.id",
+          "nullable": true
+        },
+        {
+          "name": "published_at",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      ],
+      "constraints": [
+        "unique(facility_id, version_no)",
+        "Latitude and longitude must be in valid ranges when present",
+        "At most one current published version per facility"
+      ]
+    },
+    {
+      "name": "projects",
+      "purpose": "Stable identity for a development project",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "external_key",
+          "type": "varchar",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "project_versions",
+      "purpose": "Versioned development project attributes",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "project_id",
+          "type": "uuid",
+          "fk": "projects.id",
+          "required": true
+        },
+        {
+          "name": "version_no",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "category_id",
+          "type": "uuid",
+          "fk": "categories.id",
+          "required": true
+        },
+        {
+          "name": "agency",
+          "type": "varchar",
+          "nullable": true
+        },
+        {
+          "name": "start_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "planned_end_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "progress_percentage",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "project_status",
+          "type": "varchar",
+          "nullable": true
+        },
+        {
+          "name": "attributes",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "source_id",
+          "type": "uuid",
+          "fk": "data_sources.id",
+          "nullable": true
+        },
+        {
+          "name": "import_job_id",
+          "type": "uuid",
+          "fk": "import_jobs.id",
+          "nullable": true
+        },
+        {
+          "name": "source_original_data",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "publication_status",
+          "type": "publication_status",
+          "required": true
+        },
+        {
+          "name": "created_by",
+          "type": "uuid",
+          "fk": "users.id",
+          "required": true
+        },
+        {
+          "name": "reviewed_by",
+          "type": "uuid",
+          "fk": "users.id",
+          "nullable": true
+        },
+        {
+          "name": "published_at",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      ],
+      "constraints": [
+        "unique(project_id, version_no)",
+        "Progress must be between 0 and 100 when present",
+        "At most one current published version per project",
+        "A project version may cover multiple regions through project_version_regions; permit at most one primary region per project version."
+      ]
+    },
+    {
+      "name": "project_version_regions",
+      "purpose": "Join table mapping a project version to one or more administrative regions",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "project_version_id",
+          "type": "uuid",
+          "fk": "project_versions.id",
+          "required": true
+        },
+        {
+          "name": "region_id",
+          "type": "uuid",
+          "fk": "regions.id",
+          "required": true
+        },
+        {
+          "name": "is_primary",
+          "type": "boolean",
+          "required": true
+        }
+      ],
+      "constraints": [
+        "unique(project_version_id, region_id)",
+        "At most one is_primary=true row per project version (partial unique index or equivalent transaction-safe rule)."
+      ]
+    },
+    {
+      "name": "datasets",
+      "purpose": "Dataset catalog identity and metadata",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "title",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "slug",
+          "type": "varchar",
+          "required": true,
+          "unique": true
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "category_id",
+          "type": "uuid",
+          "fk": "categories.id",
+          "nullable": true
+        },
+        {
+          "name": "lifecycle_status",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "created_by",
+          "type": "uuid",
+          "fk": "users.id",
+          "required": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "dataset_versions",
+      "purpose": "Dataset schema, source file, version, and publication state",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "dataset_id",
+          "type": "uuid",
+          "fk": "datasets.id",
+          "required": true
+        },
+        {
+          "name": "version_no",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "base_version_id",
+          "type": "uuid",
+          "fk": "dataset_versions.id",
+          "nullable": true
+        },
+        {
+          "name": "source_id",
+          "type": "uuid",
+          "fk": "data_sources.id",
+          "nullable": true
+        },
+        {
+          "name": "import_job_id",
+          "type": "uuid",
+          "fk": "import_jobs.id",
+          "nullable": true
+        },
+        {
+          "name": "publication_status",
+          "type": "publication_status",
+          "required": true
+        },
+        {
+          "name": "schema_definition",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "original_file_path",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "created_by",
+          "type": "uuid",
+          "fk": "users.id",
+          "required": true
+        },
+        {
+          "name": "reviewed_by",
+          "type": "uuid",
+          "fk": "users.id",
+          "nullable": true
+        },
+        {
+          "name": "published_at",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      ],
+      "constraints": [
+        "unique(dataset_id, version_no)",
+        "At most one current published version per dataset"
+      ]
+    },
+    {
+      "name": "dataset_rows",
+      "purpose": "Rows of a flexible tabular dataset version",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "dataset_version_id",
+          "type": "uuid",
+          "fk": "dataset_versions.id",
+          "required": true
+        },
+        {
+          "name": "row_number",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "row_data",
+          "type": "jsonb",
+          "required": true
+        },
+        {
+          "name": "validation_status",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "validation_errors",
+          "type": "jsonb",
+          "nullable": true
+        }
+      ],
+      "constraints": [
+        "unique(dataset_version_id, row_number)",
+        "JSONB approach must be validated against actual dataset sizes and query needs"
+      ]
+    },
+    {
+      "name": "import_jobs",
+      "purpose": "Track file/source import and validation results",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "target_type",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "source_id",
+          "type": "uuid",
+          "fk": "data_sources.id",
+          "nullable": true
+        },
+        {
+          "name": "original_filename",
+          "type": "varchar",
+          "nullable": true
+        },
+        {
+          "name": "file_path",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "import_status",
+          "required": true
+        },
+        {
+          "name": "total_rows",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "accepted_rows",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "rejected_rows",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "initiated_by",
+          "type": "uuid",
+          "fk": "users.id",
+          "required": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "required": true
+        },
+        {
+          "name": "finished_at",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "feedbacks",
+      "purpose": "Citizen feedback or suggestions; general or related to at most one facility, project, region, or dataset",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "fk": "users.id",
+          "required": true
+        },
+        {
+          "name": "facility_id",
+          "type": "uuid",
+          "fk": "facilities.id",
+          "nullable": true
+        },
+        {
+          "name": "project_id",
+          "type": "uuid",
+          "fk": "projects.id",
+          "nullable": true
+        },
+        {
+          "name": "subject",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "message",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "feedback_status",
+          "required": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "required": true
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "required": true
+        },
+        {
+          "name": "region_id",
+          "type": "uuid",
+          "fk": "regions.id",
+          "nullable": true
+        },
+        {
+          "name": "dataset_id",
+          "type": "uuid",
+          "fk": "datasets.id",
+          "nullable": true
+        },
+        {
+          "name": "rejection_reason",
+          "type": "text",
+          "nullable": true
+        }
+      ],
+      "constraints": [
+        "Only owner can read citizen feedback history; Admin can manage all feedback",
+        "A feedback may be general (all target FKs null) or reference at most one of facility_id, project_id, region_id, dataset_id",
+        "rejection_reason is required whenever status is rejected"
+      ]
+    },
+    {
+      "name": "feedback_events",
+      "purpose": "Append-only history of feedback status changes and responses",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "feedback_id",
+          "type": "uuid",
+          "fk": "feedbacks.id",
+          "required": true
+        },
+        {
+          "name": "actor_user_id",
+          "type": "uuid",
+          "fk": "users.id",
+          "required": true
+        },
+        {
+          "name": "old_status",
+          "type": "varchar",
+          "nullable": true
+        },
+        {
+          "name": "new_status",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "response_message",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "audit_logs",
+      "purpose": "Trace important admin/data actions",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "actor_user_id",
+          "type": "uuid",
+          "fk": "users.id",
+          "nullable": true
+        },
+        {
+          "name": "action",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "entity_type",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "entity_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "old_data",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "new_data",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "knowledge_documents",
+      "purpose": "Approved RAG source documents",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "source_id",
+          "type": "uuid",
+          "fk": "data_sources.id",
+          "nullable": true
+        },
+        {
+          "name": "title",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "file_path",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "processing_status",
+          "type": "varchar",
+          "required": true
+        },
+        {
+          "name": "created_by",
+          "type": "uuid",
+          "fk": "users.id",
+          "required": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "document_chunks",
+      "purpose": "RAG chunks and embedding references; define Python AI service ownership before implementation",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "document_id",
+          "type": "uuid",
+          "fk": "knowledge_documents.id",
+          "required": true
+        },
+        {
+          "name": "chunk_index",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "content",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "embedding_reference",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "metadata",
+          "type": "jsonb",
+          "nullable": true
+        }
+      ],
+      "constraints": [
+        "Do not lock vector storage choice until RAG implementation",
+        "Do not let Laravel and Python both mutate this table without a documented ownership contract."
+      ]
+    },
+    {
+      "name": "chat_sessions",
+      "purpose": "A citizen-owned chatbot session",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "fk": "users.id",
+          "required": true
+        },
+        {
+          "name": "title",
+          "type": "varchar",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "chat_messages",
+      "purpose": "Messages in one chat session",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "session_id",
+          "type": "uuid",
+          "fk": "chat_sessions.id",
+          "required": true
+        },
+        {
+          "name": "role",
+          "type": "chat_message_role",
+          "required": true
+        },
+        {
+          "name": "content",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "chat_message_sources",
+      "purpose": "Citations connecting assistant messages to retrieved chunks",
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "pk": true
+        },
+        {
+          "name": "message_id",
+          "type": "uuid",
+          "fk": "chat_messages.id",
+          "required": true
+        },
+        {
+          "name": "chunk_id",
+          "type": "uuid",
+          "fk": "document_chunks.id",
+          "required": true
+        },
+        {
+          "name": "citation_number",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    }
   ],
   "relationships": [
-    {"from":"users","to":"region_versions","cardinality":"1:N","via":"created_by/reviewed_by","description":"Users create/review versions"},
-    {"from":"regions","to":"region_versions","cardinality":"1:N","via":"region_id","description":"One region identity has multiple versions"},
-    {"from":"regions","to":"region_versions","cardinality":"1:N optional self-reference","via":"parent_region_id","description":"Region hierarchy: province/city/district/village as applicable"},
-    {"from":"regions","to":"facility_versions","cardinality":"1:N","via":"region_id","description":"Facilities located in regions"},
-    {"from":"regions","to":"project_versions","cardinality":"1:N","via":"region_id","description":"Projects located in regions"},
-    {"from":"categories","to":"facility_versions/project_versions/datasets","cardinality":"1:N","description":"Optional or required classification depending on entity"},
-    {"from":"data_sources","to":"region_versions/facility_versions/project_versions/dataset_versions/import_jobs/knowledge_documents","cardinality":"1:N","description":"Source attribution and provenance"},
-    {"from":"facilities","to":"facility_versions","cardinality":"1:N","via":"facility_id","description":"Version history for facility identity"},
-    {"from":"projects","to":"project_versions","cardinality":"1:N","via":"project_id","description":"Version history for project identity"},
-    {"from":"datasets","to":"dataset_versions","cardinality":"1:N","via":"dataset_id","description":"Version history for dataset catalog entry"},
-    {"from":"dataset_versions","to":"dataset_rows","cardinality":"1:N","via":"dataset_version_id","description":"Rows belong to a dataset version"},
-    {"from":"import_jobs","to":"facility_versions/project_versions/dataset_versions/region_versions","cardinality":"1:N optional","via":"import_job_id","description":"Import provenance where imported"},
-    {"from":"users","to":"feedbacks","cardinality":"1:N","via":"user_id","description":"Citizen owns feedbacks"},
-    {"from":"feedbacks","to":"feedback_events","cardinality":"1:N","via":"feedback_id","description":"Append-only status/response history"},
-    {"from":"users","to":"chat_sessions","cardinality":"1:N","via":"user_id","description":"Citizen owns sessions"},
-    {"from":"chat_sessions","to":"chat_messages","cardinality":"1:N","via":"session_id","description":"Session contains messages"},
-    {"from":"chat_messages","to":"chat_message_sources","cardinality":"1:N","via":"message_id","description":"Assistant message citations"},
-    {"from":"document_chunks","to":"chat_message_sources","cardinality":"1:N","via":"chunk_id","description":"Chunk cited by chat responses"}
+    {
+      "from": "users",
+      "to": "region_versions",
+      "cardinality": "1:N",
+      "via": "created_by/reviewed_by",
+      "description": "Users create/review versions"
+    },
+    {
+      "from": "regions",
+      "to": "region_versions",
+      "cardinality": "1:N",
+      "via": "region_id",
+      "description": "One region identity has multiple versions"
+    },
+    {
+      "from": "regions",
+      "to": "region_versions",
+      "cardinality": "1:N optional self-reference",
+      "via": "parent_region_id",
+      "description": "Region hierarchy: province/city/district/village as applicable"
+    },
+    {
+      "from": "regions",
+      "to": "facility_versions",
+      "cardinality": "1:N",
+      "via": "region_id",
+      "description": "Facilities located in regions"
+    },
+    {
+      "from": "categories",
+      "to": "facility_versions/project_versions/datasets",
+      "cardinality": "1:N",
+      "description": "Optional or required classification depending on entity"
+    },
+    {
+      "from": "data_sources",
+      "to": "region_versions/facility_versions/project_versions/dataset_versions/import_jobs/knowledge_documents",
+      "cardinality": "1:N",
+      "description": "Source attribution and provenance"
+    },
+    {
+      "from": "facilities",
+      "to": "facility_versions",
+      "cardinality": "1:N",
+      "via": "facility_id",
+      "description": "Version history for facility identity"
+    },
+    {
+      "from": "projects",
+      "to": "project_versions",
+      "cardinality": "1:N",
+      "via": "project_id",
+      "description": "Version history for project identity"
+    },
+    {
+      "from": "datasets",
+      "to": "dataset_versions",
+      "cardinality": "1:N",
+      "via": "dataset_id",
+      "description": "Version history for dataset catalog entry"
+    },
+    {
+      "from": "dataset_versions",
+      "to": "dataset_rows",
+      "cardinality": "1:N",
+      "via": "dataset_version_id",
+      "description": "Rows belong to a dataset version"
+    },
+    {
+      "from": "import_jobs",
+      "to": "facility_versions/project_versions/dataset_versions/region_versions",
+      "cardinality": "1:N optional",
+      "via": "import_job_id",
+      "description": "Import provenance where imported"
+    },
+    {
+      "from": "users",
+      "to": "feedbacks",
+      "cardinality": "1:N",
+      "via": "user_id",
+      "description": "Citizen owns feedbacks"
+    },
+    {
+      "from": "feedbacks",
+      "to": "feedback_events",
+      "cardinality": "1:N",
+      "via": "feedback_id",
+      "description": "Append-only status/response history"
+    },
+    {
+      "from": "users",
+      "to": "chat_sessions",
+      "cardinality": "1:N",
+      "via": "user_id",
+      "description": "Citizen owns sessions"
+    },
+    {
+      "from": "chat_sessions",
+      "to": "chat_messages",
+      "cardinality": "1:N",
+      "via": "session_id",
+      "description": "Session contains messages"
+    },
+    {
+      "from": "chat_messages",
+      "to": "chat_message_sources",
+      "cardinality": "1:N",
+      "via": "message_id",
+      "description": "Assistant message citations"
+    },
+    {
+      "from": "document_chunks",
+      "to": "chat_message_sources",
+      "cardinality": "1:N",
+      "via": "chunk_id",
+      "description": "Chunk cited by chat responses"
+    },
+    {
+      "from": "users",
+      "to": "sessions",
+      "cardinality": "1:N",
+      "via": "user_id",
+      "description": "Laravel database-backed sessions for authenticated users"
+    },
+    {
+      "from": "project_versions",
+      "to": "project_version_regions",
+      "cardinality": "1:N",
+      "via": "project_version_id",
+      "description": "A project version may cover multiple regions"
+    },
+    {
+      "from": "regions",
+      "to": "project_version_regions",
+      "cardinality": "1:N",
+      "via": "region_id",
+      "description": "Region covered by a project version"
+    },
+    {
+      "from": "regions",
+      "to": "feedbacks",
+      "cardinality": "1:N optional",
+      "via": "region_id",
+      "description": "Feedback can concern a region"
+    },
+    {
+      "from": "datasets",
+      "to": "feedbacks",
+      "cardinality": "1:N optional",
+      "via": "dataset_id",
+      "description": "Feedback can concern a dataset"
+    }
   ],
   "business_rules": [
     "Only one version of each region/facility/project/dataset may be current and published at a time.",
@@ -67,6 +1313,11 @@
     "ML must use curated task-specific data after dataset audit, not every table by default.",
     "Feedback history is visible only to its owner and Admin.",
     "Chat sessions are private to their owner; require server-side ownership checks.",
-    "Use-case-specific ML tables are deferred until the ML objective is selected."
+    "Use-case-specific ML tables are deferred until the ML objective is selected.",
+    "Laravel REST API owns operational records, authorization, imports, publication, and audit behavior.",
+    "First-party Next.js SPA uses Laravel Sanctum cookie/session authentication when frontend and API share a top-level domain; configure CSRF, stateful domains, CORS, and credentials.",
+    "Python handles RAG and future ML; service-to-service contracts and table ownership must be documented.",
+    "A feedback item may be general or reference at most one target among facility, project, region, and dataset.",
+    "Project versions may map to multiple regions through project_version_regions, with at most one primary region."
   ]
 }

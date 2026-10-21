@@ -3,6 +3,7 @@
 > **Status:** source of truth for frontend implementation. Read this before creating or restyling UI.
 > **Product:** TeraPublic — Public Transparency & Civic Insights.
 > **Current frontend:** Next.js App Router + TypeScript + Tailwind CSS + Turbopack; project uses `src/`.
+> **API boundary:** Laravel is the main REST API. `src/lib/api/` communicates with Laravel. Next.js Route Handlers are optional BFF endpoints only when a concrete need is documented; do not duplicate Laravel CRUD/business rules. Python is reserved for RAG and future ML.
 
 ## 1. Design intent
 
@@ -199,7 +200,7 @@ src/
     ui/                # shared low-level UI pieces
     layouts/            # shared layout shells
   lib/
-    api/                # typed FastAPI client and request helpers
+    api/                # typed Laravel API client and request helpers
     utils/
   config/
   types/
@@ -209,7 +210,7 @@ Rules:
 - Keep route files focused on composing pages and route-level loading/error boundaries.
 - Keep domain-specific components close to their module.
 - Keep truly shared components in `components/ui/`; do not create a universal component that contains unrelated product behavior.
-- Keep frontend services focused on HTTP/API communication. Backend business rules belong in FastAPI, not duplicated in React components.
+- Keep frontend services focused on HTTP/API communication. Backend business rules belong in Laravel, not duplicated in React components. Python is reserved for RAG/ML service behavior.
 - Use TypeScript types for API responses and request payloads; avoid `any` unless narrowly justified.
 - Do not expose secrets or private environment values in client-side variables.
 - Add a new module only when implementing that feature; do not create dozens of empty folders in advance.
@@ -223,7 +224,16 @@ Rules:
 - Do not present ML predictions as facts. ML is not finalized and must not be added as a decorative feature.
 - Never display unpublished drafts on public routes.
 
-## 11. Implementation workflow for the AI CLI
+## 11. API boundary and authentication integration
+
+- `src/lib/api/` contains typed clients for the Laravel REST API, request helpers, and error mapping.
+- Laravel is authoritative for authorization, validation, CRUD, import/publication workflows, and feedback transitions.
+- Do not reproduce Laravel business rules in React components or Next.js server actions.
+- Next.js Route Handlers are optional BFF endpoints for a concrete need (for example, hiding a private upstream URL or adapting a response); they must not become a second main API.
+- The preferred first-party auth flow is Laravel Sanctum SPA cookie/session auth when Next.js and Laravel share a top-level domain. Configure CSRF, stateful domains, credentials, CORS, and secure cookies. Do not store session credentials in localStorage.
+- Python AI endpoints should normally be called server-to-server via Laravel so authentication and authorization remain centralized. Do not expose internal AI service credentials to the browser.
+
+## 12. Implementation workflow for the AI CLI
 
 For each frontend task:
 1. Read this guide and `spec/design-system.json`.

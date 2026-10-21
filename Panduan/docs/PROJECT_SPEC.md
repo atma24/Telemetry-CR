@@ -1,96 +1,92 @@
 # TeraPublic — Project Specification
 
-**Status:** Draft v1.0 — planning baseline; confirm before implementation.
+**Status:** Planning baseline v1.2. Architecture decision updated to Laravel + Next.js + Python AI service. Read `PRODUCT_GUIDE.md` for the full product explanation. Conceptual schema still requires review before migrations.
 
 ## 1. Product purpose
-TeraPublic is a civic-tech platform for transparency of public data, monitoring of regions, public facilities and development projects, and data-driven civic insights. The pilot scope is DKI Jakarta. The product is cross-topic, not limited to facilities or accessibility.
+TeraPublic is a civic-tech platform for transparency of public data, monitoring of regions, public facilities and development projects, and data-driven civic insights. The pilot scope is DKI Jakarta. The product is cross-topic, not limited to facilities or accessibility. For the full product vision, user journeys, public/admin screens, feature behaviour, MVP acceptance checklist, and explicit non-goals, read `PRODUCT_GUIDE.md` first.
 
-## 2. Technology
-- Frontend: Next.js App Router, TypeScript, Tailwind CSS, Turbopack.
-- Backend API: FastAPI (Python).
-- Main database: PostgreSQL.
-- RAG: separate Python service; PostgreSQL + pgvector is the initial option.
-- Machine Learning: separate Python service if/when an evidence-backed use case is selected.
+## 2. Technology and service boundaries
+- **Frontend:** existing Next.js App Router, TypeScript, Tailwind CSS, and Turbopack; code under `src/`.
+- **Main backend:** Laravel REST API using MVC conventions plus a Service Layer and domain-oriented modules.
+- **Main database:** PostgreSQL. Laravel migrations/Eloquent own operational product tables and business workflows.
+- **Authentication:** Laravel Sanctum first-party SPA cookie/session authentication is the preferred default when the SPA and API share a top-level domain. CSRF, trusted/stateful domains, credentials, and CORS must be configured correctly.
+- **AI backend:** separate Python service for RAG and, later, ML. It does not duplicate Laravel user, facility, project, or publication business logic.
+- **Vector storage:** PostgreSQL + pgvector is an initial candidate. Decide exact data ownership and deployment details when implementing RAG.
 
-Next.js uses modular organization inspired by MVC separation of concerns, but does not need to copy Laravel's exact folder structure. FastAPI owns the main backend business logic, authorization, CRUD workflows, import, validation, and publication rules. Avoid duplicating business logic between Next.js and FastAPI.
+Next.js owns page rendering, UI state, and API calls. Laravel owns API authorization, domain rules, data operations, imports, validation, publication, feedback, and audit behavior. Next.js Route Handlers may be used as a Backend for Frontend (BFF) when justified, but are not a second copy of the primary backend. Python owns AI-specific processing and inference workflows only.
 
 ## 3. Actors and access rules
 ### Public visitor (no login)
 - View public monitoring dashboard.
 - Search and browse published datasets.
 - View published region, facility, and development-project information.
-- View public charts, tables, and maps when the source data supports them.
+- View public charts, tables, and maps only where source data supports them.
 
-### Registered citizen (login required for these actions)
-- Submit feedback or suggestions.
-- View their own feedback history, statuses, and responses.
-- Use the RAG chatbot.
-- May also use all public browsing features.
+### Registered citizen
+- Can perform all public browsing actions.
+- Must log in to submit feedback or suggestions.
+- Can view their own feedback history, statuses, and responses only.
+- Must log in to use the RAG chatbot; chat sessions are private to their owner.
 
 ### Admin (one role)
 - Manage master data, datasets, imports, corrections, publication, feedback, knowledge sources, and audit history.
-- All administrative access must be checked in FastAPI.
+- All administrative access is enforced by Laravel middleware/policies, not only by frontend visibility.
 
 ## 4. Core data management decisions
 - Master data includes administrative regions, public facilities, and development projects.
-- Facilities and projects can be added manually or imported from datasets.
-- Region data can also be entered manually or imported when a source is available.
-- General cross-topic datasets need flexible metadata and row storage, subject to validation against the actual MVP datasets.
-- A data source should be recorded wherever applicable, including source URL, source type, licensing/attribution details, and import provenance.
-- Original imported files and original source values must be preserved. Corrections are recorded as new versions/revisions; do not silently overwrite source data.
+- Regions, facilities, and projects can be manually entered or imported when source data exists; facilities and projects explicitly support both paths.
+- General cross-topic datasets use metadata and flexible row storage only where appropriate. Validate JSONB usage against actual MVP data size and query needs.
+- Record source attribution and import provenance where applicable: source name/URL, source type, license/attribution, import job, raw file/source row.
+- Original imported files and source values must be retained. Corrections create a new version/revision with an audit trail; do not silently overwrite source values.
 - New data follows Draft -> Validation -> Published.
-- The previously published version remains public until its replacement passes validation and is published.
-- Data withdrawn as invalid should be hidden from public access but retained for audit/history rather than hard-deleted by default.
-- Public APIs must return published versions only.
-- Avoid duplicate regions, facilities, projects, or rows during imports. Import should provide preview, column mapping, validation, accepted/rejected row counts, and an error report.
+- The previously published version remains public until its replacement is validated and published.
+- Data withdrawn as invalid must be hidden publicly but retained for audit/history by default.
+- Public API responses return published versions only.
+- Import includes preview, column mapping, validation, duplicate checks, accepted/rejected row counts, and an error report.
+- Projects may span multiple regions; model this with a project-version-to-region relation rather than assuming a single region where needed.
 
-## 5. ML and RAG decisions
+## 5. Dataset, RAG, and ML decisions
+### Dataset audit
+Audit candidate datasets before finalizing dataset-specific columns: schema, row count, periods, nulls, duplicates, identifier quality, source/license, geometry/coordinates, and query needs. A portal containing a dataset does not guarantee that it contains per-facility or per-project records.
+
 ### Machine Learning
 - ML use case and algorithm are intentionally undecided.
-- Audit candidate datasets first: schema, row count, period coverage, missing values, duplicates, target/labels (if required), and whether ML adds value over descriptive statistics.
+- Audit candidate datasets and establish a measurable problem before selecting a model.
 - Do not train on the entire database by default.
-- Training uses a task-specific curated dataset/pipeline. Training and inference are distinct activities.
+- Training uses task-specific curated data. Training and inference are separate activities.
+- Python owns ML-specific pipelines, evaluation, model artifacts, and inference APIs; Laravel may request inference through a defined service API once a use case is approved.
 
 ### RAG chatbot
 - Login is required to use the chatbot.
-- The service should ground answers in approved sources and provide references/citations.
-- If sources are insufficient, the chatbot should state that limitation rather than inventing an answer.
-- Keep document processing, chunking, embedding, retrieval and generation in a RAG service or clearly isolated module.
+- Answers must be grounded in approved sources and cite retrieved evidence where available.
+- If evidence is insufficient, the assistant must state that rather than inventing an answer.
+- Laravel owns user authorization, conversation ownership, and application-level access rules. Python handles document parsing/chunking/embedding/retrieval/generation as the AI service contract specifies.
+- Define whether document chunks/embeddings are stored in PostgreSQL + pgvector or a separate vector store before implementation. Do not let two services mutate the same tables without documented ownership.
 
 ## 6. Initial domain entities
-See `../spec/terapublic.schema.json` for the machine-readable conceptual schema and `ERD.mmd` for a visual overview.
+See `../spec/terapublic.schema.json` for machine-readable conceptual entities and `ERD.mmd` for a visual overview.
 
-Core groups:
-- Identity: users.
-- Reference/master data: regions/region versions, categories, data sources.
-- Domain data: facilities/facility versions, projects/project versions.
-- Generic data catalog: datasets, dataset versions, dataset rows, import jobs.
+- Identity/access: users, Laravel server-side sessions.
+- Reference data: regions/region versions, categories, data sources.
+- Domain data: facilities/facility versions, projects/project versions, project-version/region mapping where required.
+- General catalog: datasets, dataset versions, dataset rows, import jobs.
 - Governance: feedback, feedback events, audit logs.
-- RAG: knowledge documents, document chunks, chat sessions, chat messages, cited sources.
+- RAG: knowledge document metadata, document chunks/embedding references, chat sessions, chat messages, cited sources.
 
-## 7. Important modeling notes
-- Use stable identity records plus version records where a published version must remain visible until a correction is approved.
-- Each identity should have at most one currently published version at a time.
-- Store original data/provenance and versioning metadata. Define exact immutable/versioning strategy during ERD finalization.
-- `dataset_rows` may use PostgreSQL JSONB for flexible tabular rows in the initial design, but validate that choice against the size and query needs of actual MVP datasets. Highly queried indicators may need normalized/domain-specific tables.
-- Feedback can optionally refer to a facility or project; feedback can also be general. Do not expose another citizen's feedback history.
-- Admin audit logs should record important data edits, validation/publication actions, import operations, and feedback status changes.
-- RAG embeddings may use pgvector initially, but a separate vector store remains possible. Do not prematurely lock in infrastructure.
-
-## 8. MVP boundary (provisional)
-Candidate MVP:
-- Authentication and authorization.
+## 7. MVP boundary (provisional)
+- Identity/access with one Admin role.
 - Region master data.
 - Facility and development project management.
-- Dataset import, validation, versioning, and publication.
-- Public catalog and monitoring for the datasets actually selected after audit.
-- Feedback submission and lifecycle management.
+- Dataset import, validation, versioning, publication, and provenance.
+- Public catalog/monitoring for datasets selected after audit.
+- Feedback submission, status handling, and private history.
+- RAG is a product target; sequence its implementation after the data and access foundations are stable, unless competition delivery constraints require an earlier demonstrator.
 
-RAG and ML may be phased according to competition requirements, dataset audit, and implementation capacity. This document does not assert that an ML use case is already selected.
+ML remains a later decision until the dataset audit identifies a valid use case.
 
-## 9. Out of scope until explicitly agreed
-- Final ML algorithm/use case.
+## 8. Out of scope until explicitly agreed
+- Final ML use case/algorithm.
 - Guaranteed completeness of all DKI public facility/project data.
 - Automatic ingestion from every government API.
-- Super Admin or Reviewer roles; current decision is one Admin role.
-- Deleting source/original data when correcting an imported record.
+- Super Admin or Reviewer roles.
+- Unapproved features such as notification channels, crowdsourced verification workflows, or automated project-progress claims.

@@ -1,58 +1,71 @@
 # TeraPublic — Incremental Implementation Plan
 
-Do one phase at a time. Do not scaffold every feature in one task.
+Work one phase at a time. Do not scaffold every feature in one task. The existing Next.js project already uses App Router, TypeScript, Tailwind CSS, Turbopack, and `src/`; preserve its working setup.
 
-## Phase 0 — Confirm baseline
-- Confirm current Next.js project runs.
-- Keep existing Next.js App Router, TypeScript, Tailwind, and Turbopack configuration.
-- Create/use this documentation pack at project root.
-- Do not modify generated project configuration unnecessarily.
+## Phase 0 — Documentation and repository baseline
+- Keep `AGENTS.md`, product spec, backend guide, frontend guide, ERD, JSON schema, and implementation plan in sync.
+- Inspect actual repository structure and package versions before changes.
+- Decide whether `backend-laravel/` and `ai-service/` are subfolders in a monorepo or separate repositories; do not move the existing frontend without explicit need.
 
-## Phase 1 — Finalize conceptual schema
-- Review the tables and relationships in `ERD.mmd` and `../spec/terapublic.schema.json`.
-- Identify design questions that need user confirmation.
-- Confirm actual MVP datasets before locking dataset-specific attributes.
-- Finalize PostgreSQL types, constraints, indexes, and versioning rules.
+## Phase 1 — Finalize conceptual data model
+- Review `docs/ERD.mmd` against `spec/terapublic.schema.json`.
+- Resolve versioning/publication invariants, import provenance, session storage, project-to-multiple-region relation, and feedback target constraints.
+- Audit actual candidate DKI Jakarta datasets before freezing dataset-specific columns and deciding JSONB boundaries.
+- Only after review, finalize PostgreSQL types, constraints, indexes, and migration order.
 
-## Phase 2 — FastAPI foundation
-- Create isolated Python environment.
-- Set up FastAPI app, configuration, environment variables, logging and health endpoint.
-- Configure SQLAlchemy (or another explicitly approved ORM) and Alembic migrations.
-- Add automated tests for the health endpoint and configuration.
+## Phase 2 — Laravel API foundation
+- Create Laravel project in `backend-laravel/` or its own repository.
+- Configure `.env`, PostgreSQL, API routing, health endpoint, error handling, logging, and tests.
+- Install/configure Sanctum according to the official docs matching the Laravel version.
+- Establish API versioning (for example `/api/v1`) and a consistent API response/error convention.
 
-## Phase 3 — Identity and access control
-- Implement citizen registration/login/session or token design.
-- Implement one Admin role.
-- Test public versus authenticated versus Admin endpoints.
-- Store only password hashes, never plaintext passwords.
+## Phase 3 — Identity and access
+- Implement citizen registration/login/logout/current-user flow and server-side sessions.
+- Configure Sanctum SPA cookie/CSRF/CORS/stateful-domain settings for Next.js.
+- Provision the single Admin role securely; do not enable public Admin registration.
+- Test public, citizen-owned, and Admin-protected endpoints.
 
-## Phase 4 — Reference data
-- Implement regions and categories.
-- Add validation and duplicate-prevention rules.
-- Add audit history.
+## Phase 4 — Reference and audit data
+- Implement regions and categories with validation and duplicate prevention.
+- Implement data sources and audit logging.
+- Add the minimum necessary versioning mechanics and test them before domain imports.
 
-## Phase 5 — Domain data and data governance
-- Implement facility/project identities and versions.
-- Implement source registry, import jobs, file handling, previews, row validation, draft, publication, correction, withdrawal and rollback/history semantics.
-- Write tests for publication invariants.
+## Phase 5 — Facilities, projects, and datasets
+- Implement identity/version tables and relationships.
+- Implement source registry, import jobs, private file storage, preview, field mapping, validation, row errors, and idempotency/conflict handling.
+- Implement draft, publication, correction, withdrawal, and history semantics.
+- Use queues for imports that are too large/slow for a normal request.
 
-## Phase 6 — Public monitoring and feedback
-- Implement only published-data endpoints.
-- Implement feedback submission and ownership-protected history.
-- Implement Admin response/status updates and feedback event history.
+## Phase 6 — Public data and monitoring
+- Implement endpoints that return published versions only.
+- Build the public catalog, facility/project details, and monitoring visualizations for actual datasets selected after audit.
+- Show source/update periods when known; do not fabricate public values.
 
-## Phase 7 — RAG
-- Agree approved knowledge sources and citation policy.
-- Build document processing, chunks/embeddings, retrieval, citations, chat session/message APIs.
-- Add ownership tests and insufficient-evidence behavior.
+## Phase 7 — Feedback
+- Implement authenticated submission and ownership-protected user history.
+- Implement Admin review/status/response operations and append-only feedback events.
+- Test required rejection reason and valid target constraints.
 
-## Phase 8 — ML (after data audit)
-- Choose a measurable use case based on real available datasets.
-- Specify target, features, train/validation/test split and baseline metrics.
-- Only then implement training, model versioning and inference.
+## Phase 8 — Frontend API integration
+- Build typed API client(s) in `src/lib/api/` for Laravel endpoints.
+- Use the chosen cookie/CSRF flow; do not place session credentials in localStorage.
+- Keep frontend modules focused on UI and request/response mapping, not duplicate business logic.
+- Use Next.js Route Handlers only for a documented BFF requirement.
 
-## Done criteria per task
-- Relevant tests pass.
-- Input validation and authorization are implemented server-side.
-- Documentation is updated when behavior or schema changes.
-- The agent reports modified files, test results, and known limitations.
+## Phase 9 — RAG
+- Confirm approved knowledge sources and citation policy.
+- Decide table/data ownership between Laravel and Python AI service before writing integration code.
+- Build document processing, chunks/embeddings, retrieval, citations, chat endpoints, timeouts, and insufficient-evidence behavior.
+- Keep the Python service private and enforce user ownership through Laravel.
+
+## Phase 10 — ML (after dataset audit)
+- Identify a measurable task that has adequate data.
+- Specify target, feature set, baseline, evaluation method, and leakage-safe data split.
+- Only then implement training, evaluation, model artifacts/versions, and inference.
+
+## Completion criteria for each task
+- Relevant tests pass or failures are reported accurately.
+- Validation and authorization are server-side.
+- Docs are updated when schema or behavior changes.
+- Only the requested phase is implemented.
+- Report files changed, dependencies/commands used, tests run, and known limitations.

@@ -1,25 +1,35 @@
 # TeraPublic AI CLI Specification Pack
 
-This folder contains project context for an AI coding CLI such as Codex CLI, Claude Code, or another coding assistant that reads repository instructions.
+This repository folder contains the working product, architecture, ERD, and UI specification for TeraPublic. It is intended to be read by an AI coding CLI and human developers.
 
-## Contents
-- `AGENTS.md` — agent entrypoint and working rules.
-- `docs/PROJECT_SPEC.md` — agreed product scope and business rules.
-- `docs/FRONTEND_GUIDE.md` — frontend design rules, anti-AI-slop principles, palette, typography, and library policy.
-- `spec/design-system.json` — machine-readable design tokens and frontend constraints.
+## Files
+- `AGENTS.md` — root instructions for coding agents.
+- `docs/PRODUCT_GUIDE.md` — detailed explanation of the app we are building: problem, vision, users, screens, workflows, MVP, and non-goals. Read this first.
+- `docs/PROJECT_SPEC.md` — concise product scope, access rules, and agreed decisions.
+- `docs/BACKEND_GUIDE.md` — Laravel backend architecture, conventions, endpoint boundaries, and security rules.
+- `docs/FRONTEND_GUIDE.md` — Next.js/Tailwind design system and frontend architecture.
 - `docs/USE_CASES.md` — actors, permissions, and workflows.
-- `docs/ERD.mmd` — conceptual ERD in Mermaid syntax.
-- `docs/IMPLEMENTATION_PLAN.md` — incremental build order.
-- `spec/terapublic.schema.json` — structured conceptual schema for tools/agents.
+- `docs/ERD.mmd` — conceptual ERD in Mermaid.
+- `docs/IMPLEMENTATION_PLAN.md` — staged delivery plan.
+- `spec/terapublic.schema.json` — machine-readable conceptual database schema.
+- `spec/design-system.json` — machine-readable palette, typography, library policy, and UI constraints.
 
 ## How to use
-1. Extract/copy these files into the root of the TeraPublic repository.
-2. Ensure `AGENTS.md` is in the repository root.
-3. Start the AI CLI from that root directory so it can read the instructions.
-4. Give it a small scoped task, for example: "Read AGENTS.md and the TeraPublic docs. Review the ERD for inconsistencies only; do not modify code yet. Report questions before implementation."
+1. Extract/copy this folder into the root of the TeraPublic repository.
+2. Keep `AGENTS.md` at the repository root.
+3. Start the AI CLI from that root directory.
+4. Give one scoped task at a time. Ask for a plan/review before schema migrations or broad refactors.
 
-## Important
-These files describe a **conceptual draft**, not final SQL migrations. Do not directly generate every table from this JSON without reviewing the open design questions and confirming MVP datasets.
+## Read order for AI coding tools
+1. `docs/PRODUCT_GUIDE.md` to understand what TeraPublic should do and why.
+2. `docs/PROJECT_SPEC.md` and `docs/USE_CASES.md` for agreed scope, actors, and workflows.
+3. `docs/FRONTEND_GUIDE.md` / `docs/BACKEND_GUIDE.md` for implementation conventions.
+4. `docs/ERD.mmd` and `spec/terapublic.schema.json` for conceptual data structures.
+5. `docs/IMPLEMENTATION_PLAN.md` for staged work.
 
-## Frontend setup note
-The current frontend is Next.js App Router with TypeScript, Tailwind CSS, Turbopack, and a `src/` directory. Read `docs/FRONTEND_GUIDE.md` before implementing UI. The guide deliberately limits libraries: do not install all of Motion, GSAP, React Spring, Anime.js, 3D, smooth-scroll, and UI kits together. Choose dependencies only for a concrete task.
+## Important status notes
+- These files define the agreed direction but the ERD and JSON schema are conceptual, not executable database migrations.
+- Final field-level modeling must be checked against the actual candidate DKI Jakarta datasets before dataset-specific columns are frozen.
+- Laravel is the main backend API and owns operational product data. Python is a separate AI service for RAG and future ML.
+- ML use case and algorithm are intentionally undecided pending the dataset audit.
+- Follow `docs/IMPLEMENTATION_PLAN.md`; do not implement every phase at once.
