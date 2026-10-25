@@ -2,6 +2,10 @@
 
 namespace App\Services\Dashboard;
 
+use App\Models\Dataset\VersiDataset;
+use App\Models\Fasilitas\VersiFasilitas;
+use App\Models\Feedback\UmpanBalik;
+use App\Models\Proyek\VersiProyek;
 use Illuminate\Support\Facades\DB;
 
 class DashboardService
@@ -9,7 +13,7 @@ class DashboardService
     /** @return array{facilities: int, projects: int, datasets: int, feedback_by_status: array<string, int>} */
     public function statistics(): array
     {
-        $feedbackByStatus = DB::table('feedbacks')
+        $feedbackByStatus = UmpanBalik::query()
             ->select('status', DB::raw('count(*) as aggregate'))
             ->groupBy('status')
             ->pluck('aggregate', 'status')
@@ -17,9 +21,9 @@ class DashboardService
             ->all();
 
         return [
-            'facilities' => DB::table('facility_versions')->where('publication_status', 'published')->count(),
-            'projects' => DB::table('project_versions')->where('publication_status', 'published')->count(),
-            'datasets' => DB::table('dataset_versions')->where('publication_status', 'published')->count(),
+            'facilities' => VersiFasilitas::query()->terpublikasi()->count(),
+            'projects' => VersiProyek::query()->terpublikasi()->count(),
+            'datasets' => VersiDataset::query()->terpublikasi()->count(),
             'feedback_by_status' => $feedbackByStatus,
         ];
     }

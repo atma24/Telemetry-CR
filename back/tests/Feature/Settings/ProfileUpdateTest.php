@@ -1,16 +1,16 @@
 <?php
 
-use App\Models\User;
+use App\Models\Pengguna;
 use Livewire\Livewire;
 
 test('profile page is displayed', function () {
-    $this->actingAs($user = User::factory()->create());
+    $this->actingAs($user = Pengguna::factory()->create());
 
     $this->get(route('profile.edit'))->assertOk();
 });
 
 test('profile information can be updated', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
 
     $this->actingAs($user);
 
@@ -29,7 +29,7 @@ test('profile information can be updated', function () {
 });
 
 test('email verification status is unchanged when email address is unchanged', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
 
     $this->actingAs($user);
 
@@ -44,7 +44,7 @@ test('email verification status is unchanged when email address is unchanged', f
 });
 
 test('user can delete their account', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
 
     $this->actingAs($user);
 
@@ -61,7 +61,7 @@ test('user can delete their account', function () {
 });
 
 test('correct password must be provided to delete account', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
 
     $this->actingAs($user);
 

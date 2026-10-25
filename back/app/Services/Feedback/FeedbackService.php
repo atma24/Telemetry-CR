@@ -2,9 +2,10 @@
 
 namespace App\Services\Feedback;
 
+use App\Models\Feedback\RiwayatUmpanBalik;
+use App\Models\Feedback\UmpanBalik;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class FeedbackService
 {
@@ -16,13 +17,9 @@ class FeedbackService
         ?string $regionId,
         ?string $datasetId,
         string $userId,
-    ): object {
-        $now = now();
-        $feedbackId = (string) Str::uuid7();
-
-        DB::transaction(function () use ($subject, $message, $facilityId, $projectId, $regionId, $datasetId, $feedbackId, $userId, $now): void {
-            DB::table('feedbacks')->insert([
-                'id' => $feedbackId,
+    ): UmpanBalik {
+        return DB::transaction(function () use ($subject, $message, $facilityId, $projectId, $regionId, $datasetId, $userId): UmpanBalik {
+            $feedback = UmpanBalik::query()->create([
                 'user_id' => $userId,
                 'facility_id' => $facilityId,
                 'project_id' => $projectId,
@@ -31,26 +28,26 @@ class FeedbackService
                 'subject' => $subject,
                 'message' => $message,
                 'status' => 'submitted',
-                'created_at' => $now,
-                'updated_at' => $now,
             ]);
 
-            DB::table('feedback_events')->insert([
-                'id' => (string) Str::uuid7(),
-                'feedback_id' => $feedbackId,
+            RiwayatUmpanBalik::query()->create([
+                'feedback_id' => $feedback->id,
                 'actor_user_id' => $userId,
                 'old_status' => null,
                 'new_status' => 'submitted',
-                'created_at' => $now,
             ]);
-        });
 
-        return DB::table('feedbacks')->where('id', $feedbackId)->firstOrFail();
+            return $feedback;
+        });
     }
 
     public function adminIndex(int $perPage = 15): LengthAwarePaginator
     {
-        return DB::table('feedbacks')->orderByDesc('created_at')->paginate(max(1, min($perPage, 100)));
+        return UmpanBalik::query()
+            ->with(['pengguna', 'fasilitas', 'proyek', 'wilayah', 'dataset', 'riwayat'])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(max(1, min($perPage, 100)));
     }
 
     public function updateStatus(
@@ -59,28 +56,24 @@ class FeedbackService
         ?string $responseMessage,
         ?string $rejectionReason,
         string $actorId,
-    ): object {
-        return DB::transaction(function () use ($feedbackId, $status, $responseMessage, $rejectionReason, $actorId): object {
-            $feedback = DB::table('feedbacks')->where('id', $feedbackId)->lockForUpdate()->firstOrFail();
-            $now = now();
-
-            DB::table('feedbacks')->where('id', $feedbackId)->update([
+    ): UmpanBalik {
+        return DB::transaction(function () use ($feedbackId, $status, $responseMessage, $rejectionReason, $actorId): UmpanBalik {
+            $feedback = UmpanBalik::query()->whereKey($feedbackId)->lockForUpdate()->firstOrFail();
+            $oldStatus = $feedback->status;
+            $feedback->forceFill([
                 'status' => $status,
                 'rejection_reason' => $status === 'rejected' ? $rejectionReason : null,
-                'updated_at' => $now,
-            ]);
+            ])->save();
 
-            DB::table('feedback_events')->insert([
-                'id' => (string) Str::uuid7(),
+            RiwayatUmpanBalik::query()->create([
                 'feedback_id' => $feedbackId,
                 'actor_user_id' => $actorId,
-                'old_status' => $feedback->status,
+                'old_status' => $oldStatus,
                 'new_status' => $status,
                 'response_message' => $responseMessage,
-                'created_at' => $now,
             ]);
 
-            return DB::table('feedbacks')->where('id', $feedbackId)->firstOrFail();
+            return $feedback->refresh();
         });
     }
 }

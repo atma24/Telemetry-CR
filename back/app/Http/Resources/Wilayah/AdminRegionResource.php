@@ -17,7 +17,7 @@ class AdminRegionResource extends JsonResource
         return [
             'id' => $this->id,
             'created_at' => $this->created_at,
-            'versions' => AdminRegionVersionResource::collection($this->whenLoaded('versions')),
+            'versions' => AdminRegionVersionResource::collection($this->whenLoaded('versi')),
         ];
     }
 }

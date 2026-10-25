@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\User;
+use App\Models\Pengguna;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -12,7 +12,7 @@ it('requires authentication to submit feedback', function () {
 });
 
 it('submits feedback and records its initial status event', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
 
     $response = $this->actingAs($user)->postJson('/api/feedback', [
         'subject' => 'Suggestion',
@@ -32,7 +32,7 @@ it('submits feedback and records its initial status event', function () {
 });
 
 it('rejects feedback that references more than one target', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
     $facilityId = (string) Str::uuid7();
     $projectId = (string) Str::uuid7();
     DB::table('facilities')->insert(['id' => $facilityId, 'created_at' => now(), 'updated_at' => now()]);
@@ -47,9 +47,9 @@ it('rejects feedback that references more than one target', function () {
 });
 
 it('lets an administrator update status while recording the status transition', function () {
-    $admin = User::factory()->admin()->create();
+    $admin = Pengguna::factory()->admin()->create();
     $feedbackId = (string) Str::uuid7();
-    $citizen = User::factory()->create();
+    $citizen = Pengguna::factory()->create();
 
     DB::table('feedbacks')->insert([
         'id' => $feedbackId,

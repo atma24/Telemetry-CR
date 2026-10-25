@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\User;
+use App\Models\Pengguna;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -9,13 +9,13 @@ it('returns 401 when guests request admin regions', function () {
 });
 
 it('returns 403 when a citizen requests admin regions', function () {
-    $this->actingAs(User::factory()->create())
+    $this->actingAs(Pengguna::factory()->create())
         ->getJson('/api/admin/regions')
         ->assertForbidden();
 });
 
 it('returns 403 when an inactive administrator requests admin regions', function () {
-    $inactiveAdmin = User::factory()->admin()->create(['account_status' => 'suspended']);
+    $inactiveAdmin = Pengguna::factory()->admin()->create(['account_status' => 'suspended']);
 
     $this->actingAs($inactiveAdmin)
         ->getJson('/api/admin/regions')
@@ -23,7 +23,7 @@ it('returns 403 when an inactive administrator requests admin regions', function
 });
 
 it('creates a draft without accepting server-controlled attributes', function () {
-    $admin = User::factory()->admin()->create();
+    $admin = Pengguna::factory()->admin()->create();
 
     $response = $this->actingAs($admin)->postJson('/api/admin/regions', [
         'code' => '31',
@@ -50,7 +50,7 @@ it('creates a draft without accepting server-controlled attributes', function ()
 });
 
 it('rejects a child region whose published parent level is incompatible', function () {
-    $admin = User::factory()->admin()->create();
+    $admin = Pengguna::factory()->admin()->create();
     $parentId = (string) Str::uuid7();
     DB::table('regions')->insert(['id' => $parentId]);
 
@@ -64,7 +64,7 @@ it('rejects a child region whose published parent level is incompatible', functi
 });
 
 it('publishes a validated version and keeps the previous public version until publication', function () {
-    $admin = User::factory()->admin()->create();
+    $admin = Pengguna::factory()->admin()->create();
     $parentId = (string) Str::uuid7();
     DB::table('regions')->insert(['id' => $parentId]);
     DB::table('region_versions')->insert([

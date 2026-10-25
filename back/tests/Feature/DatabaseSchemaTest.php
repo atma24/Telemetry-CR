@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\User;
+use App\Models\Pengguna;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -111,14 +111,14 @@ function createVersion(string $entity, string $identityId, string $userId, int $
 }
 
 test('a user is identified by a version 7 uuid', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
 
     expect($user->id)->toBeUuid();
     expect(Uuid::fromString($user->id)->getVersion())->toBe(7);
 });
 
 test('a record keeps one published version while other versions stay unpublished', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
     $regionId = createIdentity('region', $user->id);
 
     createVersion('region', $regionId, $user->id, 1, 'draft');
@@ -130,7 +130,7 @@ test('a record keeps one published version while other versions stay unpublished
 });
 
 test('a second published version of the same record is rejected', function (string $entity) {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
     $identityId = createIdentity($entity, $user->id);
 
     createVersion($entity, $identityId, $user->id, 1, 'published');
@@ -140,7 +140,7 @@ test('a second published version of the same record is rejected', function (stri
 })->with(['region', 'facility', 'project', 'dataset']);
 
 test('feedback may reference one target record', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
     $regionId = createIdentity('region', $user->id);
 
     DB::table('feedbacks')->insert([
@@ -158,7 +158,7 @@ test('feedback may reference one target record', function () {
 });
 
 test('general feedback without a target record is accepted', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
 
     DB::table('feedbacks')->insert([
         'id' => Str::uuid7()->toString(),
@@ -174,7 +174,7 @@ test('general feedback without a target record is accepted', function () {
 });
 
 test('feedback referencing two target records is rejected', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
 
     expect(fn () => DB::table('feedbacks')->insert([
         'id' => Str::uuid7()->toString(),
@@ -190,7 +190,7 @@ test('feedback referencing two target records is rejected', function () {
 });
 
 test('rejected feedback requires a rejection reason', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
 
     expect(fn () => DB::table('feedbacks')->insert([
         'id' => Str::uuid7()->toString(),
@@ -204,7 +204,7 @@ test('rejected feedback requires a rejection reason', function () {
 });
 
 test('rejected feedback with a rejection reason is accepted', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
 
     DB::table('feedbacks')->insert([
         'id' => Str::uuid7()->toString(),
@@ -222,7 +222,7 @@ test('rejected feedback with a rejection reason is accepted', function () {
 });
 
 test('project progress is limited to the 0 to 100 range', function (float $progress) {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
     $projectId = createIdentity('project', $user->id);
 
     expect(fn () => DB::table('project_versions')->insert([
@@ -240,7 +240,7 @@ test('project progress is limited to the 0 to 100 range', function (float $progr
 })->with([100.01, -0.01]);
 
 test('facility coordinates are limited to the valid geographic range', function (string $column, float $value) {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
     $facilityId = createIdentity('facility', $user->id);
 
     expect(fn () => DB::table('facility_versions')->insert([
@@ -264,7 +264,7 @@ test('facility coordinates are limited to the valid geographic range', function 
 ]);
 
 test('a project version keeps at most one primary region', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
     $projectId = createIdentity('project', $user->id);
     $versionId = Str::uuid7()->toString();
     $now = now();
@@ -301,7 +301,7 @@ test('a project version keeps at most one primary region', function () {
 });
 
 test('a project version may cover several regions as long as one is primary', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
     $projectId = createIdentity('project', $user->id);
     $versionId = Str::uuid7()->toString();
     $now = now();

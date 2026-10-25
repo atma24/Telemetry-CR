@@ -2,8 +2,8 @@
 
 namespace App\Services\Audit;
 
-use App\Models\AuditLog;
-use App\Models\User;
+use App\Models\LogAudit;
+use App\Models\Pengguna;
 
 class AuditLogService
 {
@@ -11,14 +11,14 @@ class AuditLogService
      * @param  array<string, mixed>|null  $newData
      */
     public function record(
-        User $actor,
+        Pengguna $actor,
         string $action,
         string $entityType,
         string $entityId,
         ?array $oldData = null,
         ?array $newData = null,
-    ): AuditLog {
-        return AuditLog::query()->create([
+    ): LogAudit {
+        return LogAudit::query()->create([
             'actor_user_id' => $actor->id,
             'action' => $action,
             'entity_type' => $entityType,

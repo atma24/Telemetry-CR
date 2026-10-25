@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Models\User;
+use App\Models\Pengguna;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -56,7 +56,7 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureAuthorization(): void
     {
-        Gate::define('admin', function (User $user): bool {
+        Gate::define('admin', function (Pengguna $user): bool {
             return $user->role === 'admin' && $user->account_status === 'active';
         });
     }

@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\User;
+use App\Models\Pengguna;
 use Illuminate\Support\Facades\Gate;
 
 it('requires authentication to access the current user endpoint', function () {
@@ -8,7 +8,7 @@ it('requires authentication to access the current user endpoint', function () {
 });
 
 it('returns a safe current user resource for an authenticated citizen', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
 
     $this->actingAs($user)
         ->getJson('/api/user')
@@ -20,9 +20,9 @@ it('returns a safe current user resource for an authenticated citizen', function
 });
 
 it('grants the admin ability only to active admins', function () {
-    $admin = User::factory()->admin()->create();
-    $citizen = User::factory()->create();
-    $inactiveAdmin = User::factory()->admin()->create(['account_status' => 'suspended']);
+    $admin = Pengguna::factory()->admin()->create();
+    $citizen = Pengguna::factory()->create();
+    $inactiveAdmin = Pengguna::factory()->admin()->create(['account_status' => 'suspended']);
 
     expect(Gate::forUser($admin)->allows('admin'))->toBeTrue();
     expect(Gate::forUser($citizen)->allows('admin'))->toBeFalse();

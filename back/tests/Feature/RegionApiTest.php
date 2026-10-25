@@ -1,10 +1,10 @@
 <?php
 
-use App\Models\User;
+use App\Models\Pengguna;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-function createRegionApiVersion(User $user, string $name, string $status, ?string $parentId = null): string
+function createRegionApiVersion(Pengguna $user, string $name, string $status, ?string $parentId = null): string
 {
     $regionId = Str::uuid7()->toString();
     $now = now();
@@ -34,7 +34,7 @@ function createRegionApiVersion(User $user, string $name, string $status, ?strin
 }
 
 it('exposes only published regions to public visitors', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
     $publishedRegionId = createRegionApiVersion($user, 'Kebayoran Baru', 'published');
     createRegionApiVersion($user, 'Draft Region', 'draft');
 
@@ -46,7 +46,7 @@ it('exposes only published regions to public visitors', function () {
 });
 
 it('returns a published region by its stable identity id', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
     $regionId = createRegionApiVersion($user, 'Menteng', 'published');
 
     $this->getJson('/api/regions/'.$regionId)
@@ -56,14 +56,14 @@ it('returns a published region by its stable identity id', function () {
 });
 
 it('does not expose a region that has no published version', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
     $regionId = createRegionApiVersion($user, 'Unpublished Region', 'draft');
 
     $this->getJson('/api/regions/'.$regionId)->assertNotFound();
 });
 
 it('filters published regions and validates pagination input', function () {
-    $user = User::factory()->create();
+    $user = Pengguna::factory()->create();
     createRegionApiVersion($user, 'Kebayoran Baru', 'published');
     createRegionApiVersion($user, 'Menteng', 'published');
 

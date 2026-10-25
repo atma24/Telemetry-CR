@@ -5,9 +5,9 @@ namespace App\Services\Wilayah;
 use App\Enums\Wilayah\PublicationStatus;
 use App\Enums\Wilayah\RegionLevel;
 use App\Filters\Wilayah\RegionFilter;
-use App\Models\User;
-use App\Models\Wilayah\Region;
-use App\Models\Wilayah\RegionVersion;
+use App\Models\Pengguna;
+use App\Models\Wilayah\VersiWilayah;
+use App\Models\Wilayah\Wilayah;
 use App\Services\Audit\AuditLogService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -24,17 +24,17 @@ class WilayahService
     /** @param array{search?: string, level?: string, parent_region_id?: string, per_page?: int|string} $filters */
     public function publishedRegions(array $filters): LengthAwarePaginator
     {
-        return $this->regionFilter->apply(RegionVersion::query()->published()->with('parentRegion.publishedVersion'), $filters)
+        return $this->regionFilter->apply(VersiWilayah::query()->terpublikasi()->with('wilayahInduk.versiTerpublikasi'), $filters)
             ->orderBy('name')
             ->orderBy('region_id')
             ->paginate((int) ($filters['per_page'] ?? 15));
     }
 
-    public function findPublished(string $regionId): RegionVersion
+    public function findPublished(string $regionId): VersiWilayah
     {
-        return RegionVersion::query()
-            ->published()
-            ->with('parentRegion.publishedVersion')
+        return VersiWilayah::query()
+            ->terpublikasi()
+            ->with('wilayahInduk.versiTerpublikasi')
             ->where('region_id', $regionId)
             ->firstOrFail();
     }
@@ -43,7 +43,7 @@ class WilayahService
     public function adminRegions(array $filters): LengthAwarePaginator
     {
         return $this->regionFilter->apply(
-            RegionVersion::query()->with('region'),
+            VersiWilayah::query()->with('wilayah'),
             $filters,
         )
             ->when(
@@ -54,20 +54,20 @@ class WilayahService
             ->paginate((int) ($filters['per_page'] ?? 15));
     }
 
-    public function adminRegion(string $regionId): Region
+    public function adminRegion(string $regionId): Wilayah
     {
-        return Region::query()->with(['versions' => fn (Builder $query): Builder => $query->orderByDesc('version_no')])
+        return Wilayah::query()->with(['versi' => fn (Builder $query): Builder => $query->orderByDesc('version_no')])
             ->findOrFail($regionId);
     }
 
     /** @param array{code: string, name: string, level: string, parent_region_id?: string|null, source_id?: string|null, source_original_data?: array<string, mixed>|null} $attributes */
-    public function createDraft(array $attributes, User $actor): RegionVersion
+    public function createDraft(array $attributes, Pengguna $actor): VersiWilayah
     {
-        return DB::transaction(function () use ($attributes, $actor): RegionVersion {
+        return DB::transaction(function () use ($attributes, $actor): VersiWilayah {
             $this->assertHierarchy($attributes['level'], $attributes['parent_region_id'] ?? null);
 
-            $region = Region::query()->create();
-            $version = $region->versions()->create([
+            $region = Wilayah::query()->create();
+            $version = $region->versi()->create([
                 ...$attributes,
                 'version_no' => 1,
                 'publication_status' => PublicationStatus::Draft,
@@ -81,18 +81,18 @@ class WilayahService
     }
 
     /** @param array{code?: string, name?: string, level?: string, parent_region_id?: string|null, source_id?: string|null, source_original_data?: array<string, mixed>|null} $attributes */
-    public function createVersion(string $regionId, array $attributes, User $actor): RegionVersion
+    public function createVersion(string $regionId, array $attributes, Pengguna $actor): VersiWilayah
     {
-        return DB::transaction(function () use ($regionId, $attributes, $actor): RegionVersion {
-            $region = Region::query()->whereKey($regionId)->lockForUpdate()->firstOrFail();
-            $latest = $region->versions()->orderByDesc('version_no')->lockForUpdate()->firstOrFail();
+        return DB::transaction(function () use ($regionId, $attributes, $actor): VersiWilayah {
+            $region = Wilayah::query()->whereKey($regionId)->lockForUpdate()->firstOrFail();
+            $latest = $region->versi()->orderByDesc('version_no')->lockForUpdate()->firstOrFail();
             $data = array_merge($latest->only([
                 'code', 'name', 'level', 'parent_region_id', 'source_id', 'source_original_data',
             ]), $attributes);
 
             $this->assertHierarchy($data['level'], $data['parent_region_id']);
 
-            $version = $region->versions()->create([
+            $version = $region->versi()->create([
                 ...$data,
                 'version_no' => $latest->version_no + 1,
                 'publication_status' => PublicationStatus::Draft,
@@ -105,9 +105,9 @@ class WilayahService
         });
     }
 
-    public function validateVersion(string $regionId, string $versionId, User $actor): RegionVersion
+    public function validateVersion(string $regionId, string $versionId, Pengguna $actor): VersiWilayah
     {
-        return DB::transaction(function () use ($regionId, $versionId, $actor): RegionVersion {
+        return DB::transaction(function () use ($regionId, $versionId, $actor): VersiWilayah {
             $version = $this->lockedVersion($regionId, $versionId);
 
             if ($version->publication_status !== PublicationStatus::Draft) {
@@ -126,18 +126,18 @@ class WilayahService
         });
     }
 
-    public function publishVersion(string $regionId, string $versionId, User $actor): RegionVersion
+    public function publishVersion(string $regionId, string $versionId, Pengguna $actor): VersiWilayah
     {
-        return DB::transaction(function () use ($regionId, $versionId, $actor): RegionVersion {
-            $region = Region::query()->whereKey($regionId)->lockForUpdate()->firstOrFail();
-            $version = $region->versions()->whereKey($versionId)->lockForUpdate()->firstOrFail();
+        return DB::transaction(function () use ($regionId, $versionId, $actor): VersiWilayah {
+            $region = Wilayah::query()->whereKey($regionId)->lockForUpdate()->firstOrFail();
+            $version = $region->versi()->whereKey($versionId)->lockForUpdate()->firstOrFail();
 
             if ($version->publication_status !== PublicationStatus::Validating) {
                 throw ValidationException::withMessages(['publication_status' => 'Only validated region versions can be published.']);
             }
 
             $this->assertHierarchy($version->level, $version->parent_region_id);
-            $region->versions()->where('publication_status', PublicationStatus::Published)->update([
+            $region->versi()->where('publication_status', PublicationStatus::Published)->update([
                 'publication_status' => PublicationStatus::Superseded,
                 'updated_at' => now(),
             ]);
@@ -153,11 +153,11 @@ class WilayahService
         });
     }
 
-    public function archiveRegion(string $regionId, User $actor): RegionVersion
+    public function archiveRegion(string $regionId, Pengguna $actor): VersiWilayah
     {
-        return DB::transaction(function () use ($regionId, $actor): RegionVersion {
-            $region = Region::query()->whereKey($regionId)->lockForUpdate()->firstOrFail();
-            $version = $region->versions()->where('publication_status', PublicationStatus::Published)->lockForUpdate()->first();
+        return DB::transaction(function () use ($regionId, $actor): VersiWilayah {
+            $region = Wilayah::query()->whereKey($regionId)->lockForUpdate()->firstOrFail();
+            $version = $region->versi()->where('publication_status', PublicationStatus::Published)->lockForUpdate()->first();
 
             if ($version === null) {
                 throw ValidationException::withMessages(['region' => 'The region has no published version to archive.']);
@@ -170,9 +170,9 @@ class WilayahService
         });
     }
 
-    private function lockedVersion(string $regionId, string $versionId): RegionVersion
+    private function lockedVersion(string $regionId, string $versionId): VersiWilayah
     {
-        return RegionVersion::query()
+        return VersiWilayah::query()
             ->where('region_id', $regionId)
             ->whereKey($versionId)
             ->lockForUpdate()
@@ -199,8 +199,8 @@ class WilayahService
             throw ValidationException::withMessages(['parent_region_id' => 'This region level requires a parent region.']);
         }
 
-        $parentLevel = RegionVersion::query()
-            ->published()
+        $parentLevel = VersiWilayah::query()
+            ->terpublikasi()
             ->where('region_id', $parentRegionId)
             ->value('level');
 
@@ -210,7 +210,7 @@ class WilayahService
     }
 
     /** @return array<string, mixed> */
-    private function auditData(RegionVersion $version): array
+    private function auditData(VersiWilayah $version): array
     {
         return $version->only(['id', 'version_no', 'code', 'name', 'level', 'parent_region_id', 'source_id', 'publication_status']);
     }

@@ -21,8 +21,8 @@ class RegionResource extends JsonResource
             'name' => $this->name,
             'level' => $this->level,
             'parent_region_id' => $this->parent_region_id,
-            'parent' => $this->whenLoaded('parentRegion', function (): ?array {
-                $parentVersion = $this->parentRegion?->publishedVersion;
+            'parent' => $this->whenLoaded('wilayahInduk', function (): ?array {
+                $parentVersion = $this->wilayahInduk?->versiTerpublikasi;
 
                 if ($parentVersion === null) {
                     return null;
