@@ -8,23 +8,26 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class FasilitasService
 {
+    /** @return LengthAwarePaginator<int, Fasilitas> */
     public function index(int $perPage = 15): LengthAwarePaginator
     {
-        return VersiFasilitas::query()
-            ->terpublikasi()
-            ->with(['fasilitas', 'kategori', 'wilayah'])
-            ->orderBy('name')
-            ->orderBy('facility_id')
+        return Fasilitas::query()
+            ->whereHas('versiTerpublikasi')
+            ->with('versiTerpublikasi')
+            ->orderBy(VersiFasilitas::query()
+                ->select('name')
+                ->whereColumn('facility_id', 'facilities.id')
+                ->terpublikasi())
+            ->orderBy('id')
             ->paginate(max(1, min($perPage, 100)));
     }
 
-    public function show(string $facilityId): object
+    public function show(string $facilityId): Fasilitas
     {
         return Fasilitas::query()
             ->whereKey($facilityId)
-            ->firstOrFail()
-            ->versiTerpublikasi()
-            ->with(['fasilitas', 'kategori', 'wilayah'])
+            ->whereHas('versiTerpublikasi')
+            ->with('versiTerpublikasi')
             ->firstOrFail();
     }
 }

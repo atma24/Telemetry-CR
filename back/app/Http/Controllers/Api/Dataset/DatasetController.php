@@ -3,21 +3,20 @@
 namespace App\Http\Controllers\Api\Dataset;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Dataset\DatasetResource;
 use App\Services\Dataset\DatasetService;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class DatasetController extends Controller
 {
-    /** @return LengthAwarePaginator<int, object> */
-    public function index(Request $request, DatasetService $datasetService): LengthAwarePaginator
+    public function index(Request $request, DatasetService $datasetService): AnonymousResourceCollection
     {
-        return $datasetService->index($request->integer('per_page', 15));
+        return DatasetResource::collection($datasetService->index($request->integer('per_page', 15)));
     }
 
-    public function show(string $dataset, DatasetService $datasetService): JsonResponse
+    public function show(string $dataset, DatasetService $datasetService): DatasetResource
     {
-        return response()->json($datasetService->show($dataset));
+        return new DatasetResource($datasetService->show($dataset));
     }
 }

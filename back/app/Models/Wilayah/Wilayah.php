@@ -3,12 +3,18 @@
 namespace App\Models\Wilayah;
 
 use App\Models\Fasilitas\VersiFasilitas;
+use App\Models\Feedback\UmpanBalik;
 use App\Models\Proyek\CakupanWilayahProyek;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property string $id
+ * @property Carbon|null $created_at
+ */
 class Wilayah extends Model
 {
     use HasUuids;
@@ -31,13 +37,21 @@ class Wilayah extends Model
     /** @return HasOne<VersiWilayah, $this> */
     public function versiTerbaru(): HasOne
     {
-        return $this->hasOne(VersiWilayah::class, 'region_id')->ofMany('version_no', 'max');
+        return $this->hasOne(VersiWilayah::class, 'region_id')
+            ->orderByDesc('version_no')
+            ->limit(1);
     }
 
     /** @return HasMany<VersiFasilitas, $this> */
     public function versiFasilitas(): HasMany
     {
         return $this->hasMany(VersiFasilitas::class, 'region_id');
+    }
+
+    /** @return HasMany<UmpanBalik, $this> */
+    public function umpanBalik(): HasMany
+    {
+        return $this->hasMany(UmpanBalik::class, 'region_id');
     }
 
     /** @return HasMany<CakupanWilayahProyek, $this> */

@@ -11,6 +11,7 @@ use App\Models\Wilayah\Wilayah;
 use App\Services\Audit\AuditLogService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,7 +22,10 @@ class WilayahService
         private readonly AuditLogService $auditLogService,
     ) {}
 
-    /** @param array{search?: string, level?: string, parent_region_id?: string, per_page?: int|string} $filters */
+    /**
+     * @param  array{search?: string, level?: string, parent_region_id?: string, per_page?: int|string}  $filters
+     * @return LengthAwarePaginator<int, VersiWilayah>
+     */
     public function publishedRegions(array $filters): LengthAwarePaginator
     {
         return $this->regionFilter->apply(VersiWilayah::query()->terpublikasi()->with('wilayahInduk.versiTerpublikasi'), $filters)
@@ -39,7 +43,10 @@ class WilayahService
             ->firstOrFail();
     }
 
-    /** @param array{search?: string, level?: string, parent_region_id?: string, publication_status?: string, per_page?: int|string} $filters */
+    /**
+     * @param  array{search?: string, level?: string, parent_region_id?: string, publication_status?: string, per_page?: int|string}  $filters
+     * @return LengthAwarePaginator<int, VersiWilayah>
+     */
     public function adminRegions(array $filters): LengthAwarePaginator
     {
         return $this->regionFilter->apply(
@@ -56,7 +63,7 @@ class WilayahService
 
     public function adminRegion(string $regionId): Wilayah
     {
-        return Wilayah::query()->with(['versi' => fn (Builder $query): Builder => $query->orderByDesc('version_no')])
+        return Wilayah::query()->with(['versi' => fn (HasMany $query) => $query->orderByDesc('version_no')])
             ->findOrFail($regionId);
     }
 

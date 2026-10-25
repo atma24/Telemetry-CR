@@ -15,7 +15,21 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property string $id
+ * @property string $name
+ * @property string $category_id
+ * @property string|null $agency
+ * @property Carbon|null $start_date
+ * @property Carbon|null $planned_end_date
+ * @property string|null $progress_percentage
+ * @property string|null $project_status
+ * @property array<string, mixed>|null $attributes
+ * @property PublicationStatus $publication_status
+ * @property Carbon|null $published_at
+ */
 #[Fillable([
     'version_no', 'name', 'category_id', 'agency', 'start_date', 'planned_end_date', 'progress_percentage',
     'project_status', 'attributes', 'source_id', 'import_job_id', 'source_original_data',

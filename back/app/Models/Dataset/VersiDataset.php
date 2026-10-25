@@ -13,7 +13,15 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property string $id
+ * @property int $version_no
+ * @property array<string, mixed>|null $schema_definition
+ * @property Carbon|null $published_at
+ * @property PublicationStatus $publication_status
+ */
 #[Fillable([
     'version_no', 'base_version_id', 'source_id', 'import_job_id', 'publication_status', 'schema_definition',
     'original_file_path', 'created_by', 'reviewed_by', 'published_at',

@@ -21,7 +21,7 @@ class AdminWilayahController extends Controller
 
     public function store(StoreRegionRequest $request, WilayahService $regionService): AdminRegionVersionResource
     {
-        return new AdminRegionVersionResource($regionService->createDraft($request->validated(), $request->user()));
+        return new AdminRegionVersionResource($regionService->createDraft($request->validatedAttributes(), $request->user()));
     }
 
     public function show(string $region, WilayahService $regionService): AdminRegionResource
@@ -31,7 +31,7 @@ class AdminWilayahController extends Controller
 
     public function update(UpdateRegionRequest $request, string $region, WilayahService $regionService): AdminRegionVersionResource
     {
-        return new AdminRegionVersionResource($regionService->createVersion($region, $request->validated(), $request->user()));
+        return new AdminRegionVersionResource($regionService->createVersion($region, $request->validatedAttributes(), $request->user()));
     }
 
     public function validateVersion(string $region, string $version, Request $request, WilayahService $regionService): AdminRegionVersionResource

@@ -41,6 +41,7 @@ class FeedbackService
         });
     }
 
+    /** @return LengthAwarePaginator<int, UmpanBalik> */
     public function adminIndex(int $perPage = 15): LengthAwarePaginator
     {
         return UmpanBalik::query()

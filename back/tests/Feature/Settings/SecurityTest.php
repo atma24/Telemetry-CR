@@ -29,7 +29,9 @@ test('security settings page renders without two factor when feature is disabled
         ->assertDontSee('Two-factor authentication');
 });
 
-test('two factor authentication disabled when confirmation abandoned between requests', function () {});
+test('two factor authentication disabled when confirmation abandoned between requests', function () {
+    $this->markTestSkipped('Fortify two-factor authentication is disabled and the users table has no two-factor columns.');
+});
 
 test('password can be updated', function () {
     $user = Pengguna::factory()->create([

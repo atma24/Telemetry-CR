@@ -9,6 +9,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * @property string $id
+ * @property-read VersiFasilitas|null $versiTerpublikasi
+ */
 #[Fillable(['external_key'])]
 class Fasilitas extends Model
 {
@@ -32,7 +36,9 @@ class Fasilitas extends Model
     /** @return HasOne<VersiFasilitas, $this> */
     public function versiTerbaru(): HasOne
     {
-        return $this->hasOne(VersiFasilitas::class, 'facility_id')->ofMany('version_no', 'max');
+        return $this->hasOne(VersiFasilitas::class, 'facility_id')
+            ->orderByDesc('version_no')
+            ->limit(1);
     }
 
     /** @return HasMany<UmpanBalik, $this> */

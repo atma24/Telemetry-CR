@@ -22,6 +22,35 @@ it('returns 403 when an inactive administrator requests admin regions', function
         ->assertForbidden();
 });
 
+it('returns a populated admin region detail with versions ordered newest first', function () {
+    $admin = Pengguna::factory()->admin()->create();
+    $regionId = (string) Str::uuid7();
+    DB::table('regions')->insert(['id' => $regionId]);
+
+    foreach ([1 => 'Older version', 3 => 'Newest version', 2 => 'Middle version'] as $versionNo => $name) {
+        DB::table('region_versions')->insert([
+            'id' => (string) Str::uuid7(),
+            'region_id' => $regionId,
+            'version_no' => $versionNo,
+            'code' => '31',
+            'name' => $name,
+            'level' => 'provinsi',
+            'publication_status' => $versionNo === 3 ? 'published' : 'draft',
+            'created_by' => $admin->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    $this->actingAs($admin)
+        ->getJson("/api/admin/regions/{$regionId}")
+        ->assertOk()
+        ->assertJsonPath('data.id', $regionId)
+        ->assertJsonPath('data.versions.0.name', 'Newest version')
+        ->assertJsonPath('data.versions.1.name', 'Middle version')
+        ->assertJsonPath('data.versions.2.name', 'Older version');
+});
+
 it('creates a draft without accepting server-controlled attributes', function () {
     $admin = Pengguna::factory()->admin()->create();
 

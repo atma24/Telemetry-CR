@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Feedback;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Feedback\StoreFeedbackRequest;
 use App\Http\Requests\Feedback\UpdateFeedbackStatusRequest;
+use App\Models\Feedback\UmpanBalik;
 use App\Services\Feedback\FeedbackService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +26,7 @@ class FeedbackController extends Controller
         ), 201);
     }
 
-    /** @return LengthAwarePaginator<int, object> */
+    /** @return LengthAwarePaginator<int, UmpanBalik> */
     public function index(Request $request, FeedbackService $feedbackService): LengthAwarePaginator
     {
         return $feedbackService->adminIndex($request->integer('per_page', 15));

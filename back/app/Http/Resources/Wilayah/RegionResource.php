@@ -2,9 +2,11 @@
 
 namespace App\Http\Resources\Wilayah;
 
+use App\Models\Wilayah\VersiWilayah;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/** @mixin VersiWilayah */
 class RegionResource extends JsonResource
 {
     /**

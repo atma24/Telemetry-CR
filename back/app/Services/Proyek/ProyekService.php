@@ -8,23 +8,26 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ProyekService
 {
+    /** @return LengthAwarePaginator<int, Proyek> */
     public function index(int $perPage = 15): LengthAwarePaginator
     {
-        return VersiProyek::query()
-            ->terpublikasi()
-            ->with(['proyek', 'kategori', 'wilayahCakupan'])
-            ->orderBy('name')
-            ->orderBy('project_id')
+        return Proyek::query()
+            ->whereHas('versiTerpublikasi')
+            ->with('versiTerpublikasi')
+            ->orderBy(VersiProyek::query()
+                ->select('name')
+                ->whereColumn('project_id', 'projects.id')
+                ->terpublikasi())
+            ->orderBy('id')
             ->paginate(max(1, min($perPage, 100)));
     }
 
-    public function show(string $projectId): object
+    public function show(string $projectId): Proyek
     {
         return Proyek::query()
             ->whereKey($projectId)
-            ->firstOrFail()
-            ->versiTerpublikasi()
-            ->with(['proyek', 'kategori', 'wilayahCakupan'])
+            ->whereHas('versiTerpublikasi')
+            ->with('versiTerpublikasi')
             ->firstOrFail();
     }
 }

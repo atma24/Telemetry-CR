@@ -3,21 +3,20 @@
 namespace App\Http\Controllers\Api\Proyek;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Proyek\ProyekResource;
 use App\Services\Proyek\ProyekService;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class ProyekController extends Controller
 {
-    /** @return LengthAwarePaginator<int, object> */
-    public function index(Request $request, ProyekService $proyekService): LengthAwarePaginator
+    public function index(Request $request, ProyekService $proyekService): AnonymousResourceCollection
     {
-        return $proyekService->index($request->integer('per_page', 15));
+        return ProyekResource::collection($proyekService->index($request->integer('per_page', 15)));
     }
 
-    public function show(string $project, ProyekService $proyekService): JsonResponse
+    public function show(string $project, ProyekService $proyekService): ProyekResource
     {
-        return response()->json($proyekService->show($project));
+        return new ProyekResource($proyekService->show($project));
     }
 }

@@ -12,6 +12,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * @property string $id
+ * @property string $title
+ * @property string $slug
+ * @property string|null $description
+ * @property string|null $category_id
+ * @property string $lifecycle_status
+ * @property-read VersiDataset|null $versiTerpublikasi
+ */
 #[Fillable(['title', 'slug', 'description', 'category_id', 'lifecycle_status', 'created_by'])]
 class Dataset extends Model
 {
@@ -35,7 +44,9 @@ class Dataset extends Model
     /** @return HasOne<VersiDataset, $this> */
     public function versiTerbaru(): HasOne
     {
-        return $this->hasOne(VersiDataset::class, 'dataset_id')->ofMany('version_no', 'max');
+        return $this->hasOne(VersiDataset::class, 'dataset_id')
+            ->orderByDesc('version_no')
+            ->limit(1);
     }
 
     /** @return BelongsTo<Kategori, $this> */

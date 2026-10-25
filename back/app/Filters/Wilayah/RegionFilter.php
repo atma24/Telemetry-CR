@@ -2,11 +2,16 @@
 
 namespace App\Filters\Wilayah;
 
+use App\Models\Wilayah\VersiWilayah;
 use Illuminate\Database\Eloquent\Builder;
 
 class RegionFilter
 {
-    /** @param array{search?: string, level?: string, parent_region_id?: string} $filters */
+    /**
+     * @param  Builder<VersiWilayah>  $query
+     * @param  array{search?: string, level?: string, parent_region_id?: string}  $filters
+     * @return Builder<VersiWilayah>
+     */
     public function apply(Builder $query, array $filters): Builder
     {
         return $query
