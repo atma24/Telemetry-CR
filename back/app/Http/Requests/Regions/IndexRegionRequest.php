@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Regions;
 
+use App\Enums\RegionLevel;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class IndexRegionRequest extends FormRequest
 {
@@ -23,7 +25,7 @@ class IndexRegionRequest extends FormRequest
     {
         return [
             'search' => ['sometimes', 'string', 'max:100'],
-            'level' => ['sometimes', 'string', 'max:50'],
+            'level' => ['sometimes', Rule::enum(RegionLevel::class)],
             'parent_region_id' => ['sometimes', 'uuid'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ];

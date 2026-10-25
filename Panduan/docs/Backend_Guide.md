@@ -27,7 +27,7 @@ terapublic/
 │   ├── app/
 │   │   ├── Models/
 │   │   ├── Http/
-│   │   │   ├── Controllers/Api/V1/
+│   │   │   ├── Controllers/Api/
 │   │   │   ├── Requests/
 │   │   │   └── Resources/
 │   │   ├── Services/
@@ -64,7 +64,7 @@ Use predictable names and keep related files grouped by domain. Example for `reg
 app/
 ├── Models/Region.php
 ├── Models/RegionVersion.php
-├── Http/Controllers/Api/V1/RegionController.php
+├── Http/Controllers/Api/Regions/RegionController.php
 ├── Http/Requests/Regions/StoreRegionRequest.php
 ├── Http/Requests/Regions/UpdateRegionRequest.php
 ├── Http/Resources/RegionResource.php
@@ -77,7 +77,7 @@ The exact namespace/folder can be made more domain-oriented if it stays autoload
 
 ### Request flow
 
-1. Request enters `routes/api.php` under an `/api/v1` prefix or equivalent versioned route group.
+1. Request enters `routes/api.php`; Laravel applies the single `/api` prefix automatically.
 2. Middleware checks authentication when required and applies rate limits where appropriate.
 3. A Form Request validates shape and input constraints.
 4. Controller calls a Service/Action for the business operation.
@@ -152,9 +152,9 @@ Install/configure Sanctum using the official instructions for the chosen Laravel
 
 ## 6. API contract
 
-Version the external API (`/api/v1/...`) and document it using Laravel's generated OpenAPI tooling or an approved API specification. Keep response shapes and error formats consistent. Example endpoint families (indicative, not a full locked endpoint list):
+Use the unversioned external API (`/api/...`) and document it using Laravel's generated OpenAPI tooling or an approved API specification. Keep response shapes and error formats consistent. Example endpoint families (indicative, not a full locked endpoint list):
 
-- Public: `GET /api/v1/dashboard`, `GET /api/v1/datasets`, `GET /api/v1/regions`, `GET /api/v1/facilities`, `GET /api/v1/projects`.
+- Public: `GET /api/dashboard/summary`, `GET /api/datasets`, `GET /api/regions`, `GET /api/facilities`, `GET /api/projects`.
 - Auth: register/login/logout/current user according to Sanctum SPA flow.
 - Admin: CRUD and import/validation/publication endpoints for reference/domain data.
 - Feedback: authenticated citizen create/list-own/show-own; Admin list/review/respond/update status.

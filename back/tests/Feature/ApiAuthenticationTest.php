@@ -4,14 +4,14 @@ use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 
 it('requires authentication to access the current user endpoint', function () {
-    $this->getJson('/api/v1/user')->assertUnauthorized();
+    $this->getJson('/api/user')->assertUnauthorized();
 });
 
 it('returns a safe current user resource for an authenticated citizen', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
-        ->getJson('/api/v1/user')
+        ->getJson('/api/user')
         ->assertOk()
         ->assertJsonPath('data.id', $user->id)
         ->assertJsonPath('data.email', $user->email)
@@ -31,7 +31,7 @@ it('grants the admin ability only to active admins', function () {
 
 it('allows the configured frontend origin to use credentialed API requests', function () {
     $this->withHeader('Origin', 'http://localhost:3000')
-        ->getJson('/api/v1/health')
+        ->getJson('/api/health')
         ->assertOk()
         ->assertHeader('Access-Control-Allow-Origin', 'http://localhost:3000')
         ->assertHeader('Access-Control-Allow-Credentials', 'true');

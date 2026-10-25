@@ -17,7 +17,7 @@ Work one phase at a time. Do not scaffold every feature in one task. The existin
 - Create Laravel project in `backend-laravel/` or its own repository.
 - Configure `.env`, PostgreSQL, API routing, health endpoint, error handling, logging, and tests.
 - Install/configure Sanctum according to the official docs matching the Laravel version.
-- Establish API versioning (for example `/api/v1`) and a consistent API response/error convention.
+- Use the agreed unversioned `/api/...` route convention and a consistent API response/error contract.
 
 ## Phase 3 — Identity and access
 - Implement citizen registration/login/logout/current-user flow and server-side sessions.

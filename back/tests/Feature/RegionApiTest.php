@@ -38,7 +38,7 @@ it('exposes only published regions to public visitors', function () {
     $publishedRegionId = createRegionApiVersion($user, 'Kebayoran Baru', 'published');
     createRegionApiVersion($user, 'Draft Region', 'draft');
 
-    $this->getJson('/api/v1/regions')
+    $this->getJson('/api/regions')
         ->assertOk()
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.id', $publishedRegionId)
@@ -49,7 +49,7 @@ it('returns a published region by its stable identity id', function () {
     $user = User::factory()->create();
     $regionId = createRegionApiVersion($user, 'Menteng', 'published');
 
-    $this->getJson('/api/v1/regions/'.$regionId)
+    $this->getJson('/api/regions/'.$regionId)
         ->assertOk()
         ->assertJsonPath('data.id', $regionId)
         ->assertJsonPath('data.name', 'Menteng');
@@ -59,7 +59,7 @@ it('does not expose a region that has no published version', function () {
     $user = User::factory()->create();
     $regionId = createRegionApiVersion($user, 'Unpublished Region', 'draft');
 
-    $this->getJson('/api/v1/regions/'.$regionId)->assertNotFound();
+    $this->getJson('/api/regions/'.$regionId)->assertNotFound();
 });
 
 it('filters published regions and validates pagination input', function () {
@@ -67,16 +67,16 @@ it('filters published regions and validates pagination input', function () {
     createRegionApiVersion($user, 'Kebayoran Baru', 'published');
     createRegionApiVersion($user, 'Menteng', 'published');
 
-    $this->getJson('/api/v1/regions?search=Kebayoran&per_page=1')
+    $this->getJson('/api/regions?search=Kebayoran&per_page=1')
         ->assertOk()
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.name', 'Kebayoran Baru');
 
-    $this->getJson('/api/v1/regions?per_page=101')->assertUnprocessable();
+    $this->getJson('/api/regions?per_page=101')->assertUnprocessable();
 });
 
 it('returns the versioned API health status', function () {
-    $this->getJson('/api/v1/health')
+    $this->getJson('/api/health')
         ->assertOk()
         ->assertExactJson(['status' => 'ok']);
 });

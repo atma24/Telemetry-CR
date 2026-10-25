@@ -21,6 +21,20 @@ class RegionResource extends JsonResource
             'name' => $this->name,
             'level' => $this->level,
             'parent_region_id' => $this->parent_region_id,
+            'parent' => $this->whenLoaded('parentRegion', function (): ?array {
+                $parentVersion = $this->parentRegion?->publishedVersion;
+
+                if ($parentVersion === null) {
+                    return null;
+                }
+
+                return [
+                    'id' => $this->parent_region_id,
+                    'code' => $parentVersion->code,
+                    'name' => $parentVersion->name,
+                    'level' => $parentVersion->level,
+                ];
+            }),
             'published_at' => $this->published_at,
         ];
     }
