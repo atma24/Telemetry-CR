@@ -1,0 +1,82 @@
+<?php
+
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+function createRegionApiVersion(User $user, string $name, string $status, ?string $parentId = null): string
+{
+    $regionId = Str::uuid7()->toString();
+    $now = now();
+
+    DB::table('regions')->insert([
+        'id' => $regionId,
+        'created_at' => $now,
+        'updated_at' => $now,
+    ]);
+
+    DB::table('region_versions')->insert([
+        'id' => Str::uuid7()->toString(),
+        'region_id' => $regionId,
+        'version_no' => 1,
+        'code' => '31.71.'.Str::random(5),
+        'name' => $name,
+        'level' => 'kecamatan',
+        'parent_region_id' => $parentId,
+        'publication_status' => $status,
+        'created_by' => $user->id,
+        'published_at' => $status === 'published' ? $now : null,
+        'created_at' => $now,
+        'updated_at' => $now,
+    ]);
+
+    return $regionId;
+}
+
+it('exposes only published regions to public visitors', function () {
+    $user = User::factory()->create();
+    $publishedRegionId = createRegionApiVersion($user, 'Kebayoran Baru', 'published');
+    createRegionApiVersion($user, 'Draft Region', 'draft');
+
+    $this->getJson('/api/v1/regions')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $publishedRegionId)
+        ->assertJsonPath('data.0.name', 'Kebayoran Baru');
+});
+
+it('returns a published region by its stable identity id', function () {
+    $user = User::factory()->create();
+    $regionId = createRegionApiVersion($user, 'Menteng', 'published');
+
+    $this->getJson('/api/v1/regions/'.$regionId)
+        ->assertOk()
+        ->assertJsonPath('data.id', $regionId)
+        ->assertJsonPath('data.name', 'Menteng');
+});
+
+it('does not expose a region that has no published version', function () {
+    $user = User::factory()->create();
+    $regionId = createRegionApiVersion($user, 'Unpublished Region', 'draft');
+
+    $this->getJson('/api/v1/regions/'.$regionId)->assertNotFound();
+});
+
+it('filters published regions and validates pagination input', function () {
+    $user = User::factory()->create();
+    createRegionApiVersion($user, 'Kebayoran Baru', 'published');
+    createRegionApiVersion($user, 'Menteng', 'published');
+
+    $this->getJson('/api/v1/regions?search=Kebayoran&per_page=1')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.name', 'Kebayoran Baru');
+
+    $this->getJson('/api/v1/regions?per_page=101')->assertUnprocessable();
+});
+
+it('returns the versioned API health status', function () {
+    $this->getJson('/api/v1/health')
+        ->assertOk()
+        ->assertExactJson(['status' => 'ok']);
+});
