@@ -1,4 +1,6 @@
 erDiagram
+    %% APBD source columns are retained as provided. Fingerprints are non-unique duplicate candidates, not a business key.
+    %% No uniqueness is inferred from combinations of the eight APBD data fields.
     USERS {
         uuid id PK
         string name
@@ -73,23 +75,18 @@ erDiagram
         uuid reviewed_by FK
         datetime published_at
     }
-    PROJECTS {
+    APBD {
         uuid id PK
-        string external_key
-        datetime created_at
-    }
-    PROJECT_VERSIONS {
-        uuid id PK
-        uuid project_id FK
-        int version_no
-        string name
-        uuid category_id FK
-        string agency
-        date start_date
-        date planned_end_date
-        decimal progress_percentage
-        string project_status
-        json attributes
+        string periode_data
+        date tanggal
+        string kode_opd
+        string nama_opd
+        string akun_jenis
+        string nama_akun
+        decimal anggaran
+        decimal realisasi
+        string source_fingerprint "indexed, non-unique"
+        uuid revises_id FK
         uuid source_id FK
         uuid import_job_id FK
         json source_original_data
@@ -97,12 +94,8 @@ erDiagram
         uuid created_by FK
         uuid reviewed_by FK
         datetime published_at
-    }
-    PROJECT_VERSION_REGIONS {
-        uuid id PK
-        uuid project_version_id FK
-        uuid region_id FK
-        boolean is_primary
+        datetime created_at
+        datetime updated_at
     }
     DATASETS {
         uuid id PK
@@ -146,6 +139,7 @@ erDiagram
         int total_rows
         int accepted_rows
         int rejected_rows
+        text error_report_path
         uuid initiated_by FK
         datetime created_at
         datetime finished_at
@@ -154,7 +148,7 @@ erDiagram
         uuid id PK
         uuid user_id FK
         uuid facility_id FK
-        uuid project_id FK
+        uuid apbd_id FK
         uuid region_id FK
         uuid dataset_id FK
         string subject
@@ -240,14 +234,11 @@ erDiagram
     USERS ||--o{ FACILITY_VERSIONS : creates
     USERS o|--o{ FACILITY_VERSIONS : reviews
 
-    PROJECTS ||--|{ PROJECT_VERSIONS : has_versions
-    PROJECT_VERSIONS ||--|{ PROJECT_VERSION_REGIONS : maps_regions
-    REGIONS ||--o{ PROJECT_VERSION_REGIONS : covers_region
-    CATEGORIES ||--o{ PROJECT_VERSIONS : classifies
-    DATA_SOURCES o|--o{ PROJECT_VERSIONS : sourced_from
-    IMPORT_JOBS o|--o{ PROJECT_VERSIONS : imported_by
-    USERS ||--o{ PROJECT_VERSIONS : creates
-    USERS o|--o{ PROJECT_VERSIONS : reviews
+    APBD o|--o{ APBD : revises
+    DATA_SOURCES o|--o{ APBD : sourced_from
+    IMPORT_JOBS o|--o{ APBD : imported_by
+    USERS ||--o{ APBD : creates
+    USERS o|--o{ APBD : reviews
 
     DATASETS ||--|{ DATASET_VERSIONS : has_versions
     DATASET_VERSIONS o|--o{ DATASET_VERSIONS : based_on
@@ -261,7 +252,7 @@ erDiagram
 
     USERS ||--o{ FEEDBACKS : submits
     FACILITIES o|--o{ FEEDBACKS : concerns
-    PROJECTS o|--o{ FEEDBACKS : concerns
+    APBD o|--o{ FEEDBACKS : concerns
     REGIONS o|--o{ FEEDBACKS : concerns
     DATASETS o|--o{ FEEDBACKS : concerns
     FEEDBACKS ||--o{ FEEDBACK_EVENTS : has_history

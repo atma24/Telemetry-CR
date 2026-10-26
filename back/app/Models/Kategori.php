@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Models\Dataset\Dataset;
 use App\Models\Fasilitas\VersiFasilitas;
-use App\Models\Proyek\VersiProyek;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -34,12 +33,6 @@ class Kategori extends Model
     public function versiFasilitas(): HasMany
     {
         return $this->hasMany(VersiFasilitas::class, 'category_id');
-    }
-
-    /** @return HasMany<VersiProyek, $this> */
-    public function versiProyek(): HasMany
-    {
-        return $this->hasMany(VersiProyek::class, 'category_id');
     }
 
     /** @return HasMany<Dataset, $this> */

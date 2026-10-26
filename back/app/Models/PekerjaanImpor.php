@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Apbd\Apbd;
 use App\Models\Dataset\VersiDataset;
 use App\Models\Fasilitas\VersiFasilitas;
-use App\Models\Proyek\VersiProyek;
 use App\Models\Wilayah\VersiWilayah;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'target_type', 'source_id', 'original_filename', 'file_path', 'status', 'total_rows',
+    'target_type', 'source_id', 'original_filename', 'file_path', 'error_report_path', 'status', 'total_rows',
     'accepted_rows', 'rejected_rows', 'initiated_by', 'finished_at',
 ])]
 class PekerjaanImpor extends Model
@@ -57,10 +57,10 @@ class PekerjaanImpor extends Model
         return $this->hasMany(VersiFasilitas::class, 'import_job_id');
     }
 
-    /** @return HasMany<VersiProyek, $this> */
-    public function versiProyek(): HasMany
+    /** @return HasMany<Apbd, $this> */
+    public function apbd(): HasMany
     {
-        return $this->hasMany(VersiProyek::class, 'import_job_id');
+        return $this->hasMany(Apbd::class, 'import_job_id');
     }
 
     /** @return HasMany<VersiDataset, $this> */

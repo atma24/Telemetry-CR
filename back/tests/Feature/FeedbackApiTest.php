@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Apbd\Apbd;
 use App\Models\Pengguna;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -31,16 +32,29 @@ it('submits feedback and records its initial status event', function () {
     ]);
 });
 
+it('allows feedback on a published APBD record', function () {
+    $user = Pengguna::factory()->create();
+    $apbd = Apbd::factory()->published()->create();
+
+    $response = $this->actingAs($user)->postJson('/api/feedback', [
+        'apbd_id' => $apbd->id,
+        'subject' => 'Possible APBD correction',
+        'message' => 'Please review this published amount.',
+    ]);
+
+    $response->assertCreated()->assertJsonPath('apbd_id', $apbd->id);
+    $this->assertDatabaseHas('feedbacks', ['id' => $response->json('id'), 'apbd_id' => $apbd->id]);
+});
+
 it('rejects feedback that references more than one target', function () {
     $user = Pengguna::factory()->create();
     $facilityId = (string) Str::uuid7();
-    $projectId = (string) Str::uuid7();
+    $apbd = Apbd::factory()->published()->create();
     DB::table('facilities')->insert(['id' => $facilityId, 'created_at' => now(), 'updated_at' => now()]);
-    DB::table('projects')->insert(['id' => $projectId, 'created_at' => now(), 'updated_at' => now()]);
 
     $this->actingAs($user)->postJson('/api/feedback', [
         'facility_id' => $facilityId,
-        'project_id' => $projectId,
+        'apbd_id' => $apbd->id,
         'subject' => 'Invalid target',
         'message' => 'This points to more than one record.',
     ])->assertUnprocessable()->assertJsonValidationErrors('facility_id');

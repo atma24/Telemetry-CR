@@ -18,7 +18,7 @@ class StoreFeedbackRequest extends FormRequest
     {
         return [
             'facility_id' => ['nullable', 'uuid', Rule::exists('facilities', 'id')],
-            'project_id' => ['nullable', 'uuid', Rule::exists('projects', 'id')],
+            'apbd_id' => ['nullable', 'uuid', Rule::exists('apbd', 'id')->where('publication_status', 'published')],
             'region_id' => ['nullable', 'uuid', Rule::exists('regions', 'id')],
             'dataset_id' => ['nullable', 'uuid', Rule::exists('datasets', 'id')],
             'subject' => ['required', 'string', 'max:255'],
@@ -32,7 +32,7 @@ class StoreFeedbackRequest extends FormRequest
         return [function (Validator $validator): void {
             $targets = array_filter([
                 $this->input('facility_id'),
-                $this->input('project_id'),
+                $this->input('apbd_id'),
                 $this->input('region_id'),
                 $this->input('dataset_id'),
             ], static fn (mixed $target): bool => $target !== null);

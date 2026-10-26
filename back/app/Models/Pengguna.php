@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Apbd\Apbd;
 use App\Models\Dataset\Dataset;
 use App\Models\Dataset\VersiDataset;
 use App\Models\Fasilitas\VersiFasilitas;
 use App\Models\Feedback\RiwayatUmpanBalik;
 use App\Models\Feedback\UmpanBalik;
-use App\Models\Proyek\VersiProyek;
 use App\Models\Wilayah\VersiWilayah;
 use Database\Factories\PenggunaFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -91,16 +91,16 @@ class Pengguna extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(VersiFasilitas::class, 'reviewed_by');
     }
 
-    /** @return HasMany<VersiProyek, $this> */
-    public function versiProyekDibuat(): HasMany
+    /** @return HasMany<Apbd, $this> */
+    public function apbdDibuat(): HasMany
     {
-        return $this->hasMany(VersiProyek::class, 'created_by');
+        return $this->hasMany(Apbd::class, 'created_by');
     }
 
-    /** @return HasMany<VersiProyek, $this> */
-    public function versiProyekDitinjau(): HasMany
+    /** @return HasMany<Apbd, $this> */
+    public function apbdDitinjau(): HasMany
     {
-        return $this->hasMany(VersiProyek::class, 'reviewed_by');
+        return $this->hasMany(Apbd::class, 'reviewed_by');
     }
 
     /** @return HasMany<Dataset, $this> */

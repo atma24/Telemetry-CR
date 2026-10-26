@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\Apbd\AdminApbdController;
+use App\Http\Controllers\Api\Apbd\ApbdController;
 use App\Http\Controllers\Api\Auth\AuthenticatedUserController;
 use App\Http\Controllers\Api\Dashboard\DashboardController;
 use App\Http\Controllers\Api\Dataset\DatasetController;
@@ -7,8 +9,6 @@ use App\Http\Controllers\Api\Fasilitas\Admin\AdminFasilitasController;
 use App\Http\Controllers\Api\Fasilitas\FasilitasController;
 use App\Http\Controllers\Api\Feedback\FeedbackController;
 use App\Http\Controllers\Api\HealthController;
-use App\Http\Controllers\Api\Proyek\Admin\AdminProyekController;
-use App\Http\Controllers\Api\Proyek\ProyekController;
 use App\Http\Controllers\Api\Wilayah\Admin\AdminWilayahController;
 use App\Http\Controllers\Api\Wilayah\WilayahController;
 use Illuminate\Support\Facades\Route;
@@ -27,9 +27,9 @@ Route::name('api.')->group(function (): void {
     Route::get('facilities', [FasilitasController::class, 'index'])->name('facilities.index');
     Route::get('facilities/{facility}', [FasilitasController::class, 'show'])
         ->whereUuid('facility')->name('facilities.show');
-    Route::get('projects', [ProyekController::class, 'index'])->name('projects.index');
-    Route::get('projects/{project}', [ProyekController::class, 'show'])
-        ->whereUuid('project')->name('projects.show');
+    Route::get('apbd', [ApbdController::class, 'index'])->name('apbd.index');
+    Route::get('apbd/{apbd}', [ApbdController::class, 'show'])
+        ->whereUuid('apbd')->name('apbd.show');
     Route::get('datasets', [DatasetController::class, 'index'])->name('datasets.index');
     Route::get('datasets/{dataset}', [DatasetController::class, 'show'])
         ->whereUuid('dataset')->name('datasets.show');
@@ -54,16 +54,17 @@ Route::name('api.')->group(function (): void {
         Route::post('facilities/{facility}/archive', [AdminFasilitasController::class, 'archive'])
             ->whereUuid('facility')->name('facilities.archive');
 
-        Route::get('projects', [AdminProyekController::class, 'index'])->name('projects.index');
-        Route::post('projects', [AdminProyekController::class, 'store'])->name('projects.store');
-        Route::get('projects/{project}', [AdminProyekController::class, 'show'])->whereUuid('project')->name('projects.show');
-        Route::put('projects/{project}', [AdminProyekController::class, 'update'])->whereUuid('project')->name('projects.update');
-        Route::patch('projects/{project}', [AdminProyekController::class, 'update'])->whereUuid('project')->name('projects.patch');
-        Route::post('projects/{project}/versions/{version}/validate', [AdminProyekController::class, 'validateVersion'])
-            ->whereUuid('project')->whereUuid('version')->name('projects.versions.validate');
-        Route::post('projects/{project}/versions/{version}/publish', [AdminProyekController::class, 'publish'])
-            ->whereUuid('project')->whereUuid('version')->name('projects.versions.publish');
-        Route::post('projects/{project}/archive', [AdminProyekController::class, 'archive'])->whereUuid('project')->name('projects.archive');
+        Route::get('apbd', [AdminApbdController::class, 'index'])->name('apbd.index');
+        Route::post('apbd', [AdminApbdController::class, 'store'])->name('apbd.store');
+        Route::post('apbd/import', [AdminApbdController::class, 'import'])->middleware('throttle:10,1')->name('apbd.import');
+        Route::get('apbd/imports/{importJob}/errors', [AdminApbdController::class, 'downloadErrors'])
+            ->whereUuid('importJob')->name('apbd.imports.errors');
+        Route::get('apbd/{apbd}', [AdminApbdController::class, 'show'])->whereUuid('apbd')->name('apbd.show');
+        Route::put('apbd/{apbd}', [AdminApbdController::class, 'update'])->whereUuid('apbd')->name('apbd.update');
+        Route::patch('apbd/{apbd}', [AdminApbdController::class, 'update'])->whereUuid('apbd')->name('apbd.patch');
+        Route::delete('apbd/{apbd}', [AdminApbdController::class, 'destroy'])->whereUuid('apbd')->name('apbd.destroy');
+        Route::post('apbd/{apbd}/validate', [AdminApbdController::class, 'validateRecord'])->whereUuid('apbd')->name('apbd.validate');
+        Route::post('apbd/{apbd}/publish', [AdminApbdController::class, 'publish'])->whereUuid('apbd')->name('apbd.publish');
 
         Route::get('regions', [AdminWilayahController::class, 'index'])->name('regions.index');
         Route::post('regions', [AdminWilayahController::class, 'store'])->name('regions.store');

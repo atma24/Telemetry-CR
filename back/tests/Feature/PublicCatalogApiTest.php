@@ -1,11 +1,11 @@
 <?php
 
 use App\Enums\Wilayah\PublicationStatus;
+use App\Models\Apbd\Apbd;
 use App\Models\Dataset\Dataset;
 use App\Models\Fasilitas\Fasilitas;
 use App\Models\Kategori;
 use App\Models\Pengguna;
-use App\Models\Proyek\Proyek;
 use App\Models\SumberData;
 use App\Models\Wilayah\Wilayah;
 use App\Services\Dataset\DatasetService;
@@ -15,7 +15,7 @@ it('serves the new public catalog and transparency endpoints', function () {
         ->assertOk()
         ->assertJsonCount(0, 'data');
 
-    $this->getJson('/api/projects')
+    $this->getJson('/api/apbd')
         ->assertOk()
         ->assertJsonCount(0, 'data');
 
@@ -27,13 +27,13 @@ it('serves the new public catalog and transparency endpoints', function () {
         ->assertOk()
         ->assertExactJson([
             'facilities' => 0,
-            'projects' => 0,
+            'apbd_records' => 0,
             'datasets' => 0,
             'feedback_by_status' => [],
         ]);
 });
 
-it('keeps public catalog response fields and identity and version ids while hiding unpublished and internal data', function () {
+it('keeps public catalog response fields while hiding unpublished and internal data', function () {
     $creator = Pengguna::factory()->create();
     $category = Kategori::query()->create([
         'name' => 'Health',
@@ -73,27 +73,22 @@ it('keeps public catalog response fields and identity and version ids while hidi
         'created_by' => $creator->id,
     ]);
 
-    $project = Proyek::query()->create();
-    $projectVersion = $project->versi()->create([
-        'version_no' => 1,
-        'name' => 'Clinic renovation',
-        'category_id' => $category->id,
-        'agency' => 'Health Agency',
-        'start_date' => '2026-01-01',
-        'planned_end_date' => '2026-12-31',
-        'progress_percentage' => 25.5,
-        'project_status' => 'in_progress',
-        'attributes' => ['phase' => 'construction'],
-        'source_original_data' => ['internal' => 'project-value'],
-        'publication_status' => PublicationStatus::Published,
+    $apbd = Apbd::factory()->published()->create([
+        'periode_data' => '202605',
+        'tanggal' => '2026-05-31',
+        'kode_opd' => '001.01',
+        'nama_opd' => 'Health Agency',
+        'akun_jenis' => '5',
+        'nama_akun' => 'Public clinic allocation',
+        'anggaran' => '2500000.50',
+        'realisasi' => '1250000.25',
+        'source_id' => $source->id,
+        'source_original_data' => ['internal' => 'apbd-value'],
         'created_by' => $creator->id,
-        'published_at' => '2026-05-06 12:30:00',
     ]);
-    $project->versi()->create([
-        'version_no' => 2,
-        'name' => 'Unpublished project',
-        'category_id' => $category->id,
+    Apbd::factory()->create([
         'publication_status' => PublicationStatus::Draft,
+        'nama_opd' => 'Unpublished Agency',
         'created_by' => $creator->id,
     ]);
 
@@ -142,12 +137,12 @@ it('keeps public catalog response fields and identity and version ids while hidi
         ->assertJsonMissingPath('data.0.created_by')
         ->assertJsonMissingPath('data.0.reviewed_by');
 
-    $projectResponse = $this->getJson('/api/projects')->assertOk()->assertJsonCount(1, 'data');
-    $projectResponse->assertJsonPath('data.0.id', $project->id)
-        ->assertJsonPath('data.0.version_id', $projectVersion->id)
-        ->assertJsonPath('data.0.name', 'Clinic renovation')
-        ->assertJsonPath('data.0.start_date', '2026-01-01')
-        ->assertJsonPath('data.0.published_at', '2026-05-06 12:30:00')
+    $apbdResponse = $this->getJson('/api/apbd')->assertOk()->assertJsonCount(1, 'data');
+    $apbdResponse->assertJsonPath('data.0.id', $apbd->id)
+        ->assertJsonPath('data.0.periode_data', '202605')
+        ->assertJsonPath('data.0.nama_opd', 'Health Agency')
+        ->assertJsonPath('data.0.anggaran', '2500000.50')
+        ->assertJsonPath('data.0.realisasi', '1250000.25')
         ->assertJsonMissingPath('data.0.source_original_data')
         ->assertJsonMissingPath('data.0.import_job_id')
         ->assertJsonMissingPath('data.0.created_by')
@@ -166,10 +161,10 @@ it('keeps public catalog response fields and identity and version ids while hidi
         ->assertOk()
         ->assertJsonPath('id', $facility->id)
         ->assertJsonPath('version_id', $facilityVersion->id);
-    $this->getJson("/api/projects/{$project->id}")
+    $this->getJson("/api/apbd/{$apbd->id}")
         ->assertOk()
-        ->assertJsonPath('id', $project->id)
-        ->assertJsonPath('version_id', $projectVersion->id);
+        ->assertJsonPath('id', $apbd->id)
+        ->assertJsonPath('periode_data', '202605');
     $this->getJson("/api/datasets/{$dataset->id}")
         ->assertOk()
         ->assertJsonPath('id', $dataset->id)

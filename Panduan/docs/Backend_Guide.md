@@ -73,7 +73,7 @@ app/
 └── Jobs/Imports/ImportRegionsJob.php
 ```
 
-The exact namespace/folder can be made more domain-oriented if it stays autoloadable and consistent. Apply the same convention to facilities, projects, datasets, publications, and feedback. Do not create empty modules for every future feature up front.
+The exact namespace/folder can be made more domain-oriented if it stays autoloadable and consistent. Apply the same convention to facilities, APBD, datasets, publications, and feedback. Do not create empty modules for every future feature up front.
 
 ### Request flow
 
@@ -98,17 +98,19 @@ The exact namespace/folder can be made more domain-oriented if it stays autoload
 - Validate hierarchy and official codes when available.
 - Prevent duplicate identities and invalid parent-child relationships.
 
-### Facilities and projects
-- Support both manual entry and import.
+### Facilities and APBD
+- Support manual entry and import for facilities. APBD rows accept manual entry and CSV/XLSX imports against the eight source columns: `periode_data`, `tanggal`, `kode_opd`, `nama_opd`, `akun_jenis`, `nama_akun`, `anggaran`, and `realisasi`.
 - Store structured fields needed for filtering/reporting in typed columns.
 - Store less common/source-specific attributes in JSONB only when justified by actual datasets.
 - Retain original imported values and source references.
-- Projects may relate to multiple regions through a join table such as `project_version_regions` when the source supports it.
+- Keep APBD amount columns as exact fixed-precision decimals; do not calculate totals or assign project-level meaning unless a separately approved source supports it.
+- Treat a stable source fingerprint as a non-unique duplicate candidate. Report and skip matching imports; do not overwrite an existing row or add a guessed combination unique constraint.
 
 ### Datasets and import jobs
 - Dataset catalog and version records.
 - Upload and safely store CSV/XLSX files outside executable/public paths.
-- Preview and map columns before import.
+- APBD currently imports directly using normalized header names for its eight columns; it does not expose a preview or manual field-mapping endpoint.
+- APBD imports currently run synchronously with a 20 MB upload limit; move larger workloads to a queue before increasing that limit.
 - Validate row schema, types, required fields, region/category references and duplicates.
 - Record accepted/rejected row counts and row-level errors.
 - Use queued jobs for large imports; do not make long imports synchronous by default.
@@ -124,7 +126,7 @@ The exact namespace/folder can be made more domain-oriented if it stays autoload
 ### Feedback and audit
 - Feedback statuses: `submitted`, `in_review`, `in_progress`, `resolved`, `rejected`.
 - Rejected feedback must have an explanatory reason.
-- A feedback item may be general or reference at most one target among facility, project, region, or dataset; encode this rule in validation and preferably a database constraint.
+- A feedback item may be general or reference at most one target among facility, APBD row, region, or dataset; encode this rule in validation and preferably a database constraint.
 - Feedback history is append-only in `feedback_events`.
 - Audit significant edits, imports, validation/publication, withdrawal, and feedback status changes.
 
@@ -154,9 +156,10 @@ Install/configure Sanctum using the official instructions for the chosen Laravel
 
 Use the unversioned external API (`/api/...`) and document it using Laravel's generated OpenAPI tooling or an approved API specification. Keep response shapes and error formats consistent. Example endpoint families (indicative, not a full locked endpoint list):
 
-- Public: `GET /api/dashboard/summary`, `GET /api/datasets`, `GET /api/regions`, `GET /api/facilities`, `GET /api/projects`.
+- Public: `GET /api/dashboard`, `GET /api/datasets`, `GET /api/regions`, `GET /api/facilities`, `GET /api/apbd`.
 - Auth: register/login/logout/current user according to Sanctum SPA flow.
 - Admin: CRUD and import/validation/publication endpoints for reference/domain data.
+- APBD Admin: `POST /api/admin/apbd`, `POST /api/admin/apbd/import`, `GET /api/admin/apbd/imports/{id}/errors`, and record validation/publication routes.
 - Feedback: authenticated citizen create/list-own/show-own; Admin list/review/respond/update status.
 - RAG: Laravel validates user/session and forwards a scoped request to the private Python AI service, then stores/returns the chat result and citations according to the documented ownership strategy.
 - ML: only add inference endpoints after an ML use case is approved.

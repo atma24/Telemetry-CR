@@ -1,47 +1,57 @@
 <?php
 
-namespace App\Models\Proyek;
+namespace App\Models\Apbd;
 
 use App\Enums\Wilayah\PublicationStatus;
-use App\Models\Kategori;
+use App\Models\Feedback\UmpanBalik;
 use App\Models\PekerjaanImpor;
 use App\Models\Pengguna;
 use App\Models\SumberData;
-use App\Models\Wilayah\Wilayah;
+use Database\Factories\Apbd\ApbdFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
  * @property string $id
- * @property string $name
- * @property string $category_id
- * @property string|null $agency
- * @property Carbon|null $start_date
- * @property Carbon|null $planned_end_date
- * @property string|null $progress_percentage
- * @property string|null $project_status
- * @property array<string, mixed>|null $attributes
+ * @property string $periode_data
+ * @property Carbon|string $tanggal
+ * @property string $kode_opd
+ * @property string $nama_opd
+ * @property string $akun_jenis
+ * @property string $nama_akun
+ * @property string $anggaran
+ * @property string $realisasi
+ * @property string $source_fingerprint
+ * @property string|null $revises_id
+ * @property string|null $source_id
+ * @property string|null $import_job_id
+ * @property array<string, mixed>|null $source_original_data
  * @property PublicationStatus $publication_status
+ * @property string $created_by
+ * @property string|null $reviewed_by
  * @property Carbon|null $published_at
  */
 #[Fillable([
-    'version_no', 'name', 'category_id', 'agency', 'start_date', 'planned_end_date', 'progress_percentage',
-    'project_status', 'attributes', 'source_id', 'import_job_id', 'source_original_data',
+    'periode_data', 'tanggal', 'kode_opd', 'nama_opd', 'akun_jenis', 'nama_akun', 'anggaran', 'realisasi',
+    'source_fingerprint', 'revises_id', 'source_id', 'import_job_id', 'source_original_data',
     'publication_status', 'created_by', 'reviewed_by', 'published_at',
 ])]
-class VersiProyek extends Model
+
+class Apbd extends Model
 {
-    use HasUuids;
+    /** @use HasFactory<ApbdFactory> */
+    use HasFactory, HasUuids;
 
-    protected $table = 'project_versions';
+    protected $table = 'apbd';
 
-    /** @param Builder<VersiProyek> $query */
+    /** @param Builder<Apbd> $query */
     #[Scope]
     protected function terpublikasi(Builder $query): void
     {
@@ -52,27 +62,11 @@ class VersiProyek extends Model
     protected function casts(): array
     {
         return [
-            'version_no' => 'integer',
-            'start_date' => 'date',
-            'planned_end_date' => 'date',
-            'progress_percentage' => 'decimal:2',
-            'attributes' => 'array',
+            'tanggal' => 'date:Y-m-d',
             'source_original_data' => 'array',
             'publication_status' => PublicationStatus::class,
             'published_at' => 'datetime',
         ];
-    }
-
-    /** @return BelongsTo<Proyek, $this> */
-    public function proyek(): BelongsTo
-    {
-        return $this->belongsTo(Proyek::class, 'project_id');
-    }
-
-    /** @return BelongsTo<Kategori, $this> */
-    public function kategori(): BelongsTo
-    {
-        return $this->belongsTo(Kategori::class, 'category_id');
     }
 
     /** @return BelongsTo<SumberData, $this> */
@@ -99,12 +93,21 @@ class VersiProyek extends Model
         return $this->belongsTo(Pengguna::class, 'reviewed_by');
     }
 
-    /** @return BelongsToMany<Wilayah, $this, CakupanWilayahProyek> */
-    public function wilayahCakupan(): BelongsToMany
+    /** @return BelongsTo<self, $this> */
+    public function revisiDari(): BelongsTo
     {
-        return $this->belongsToMany(Wilayah::class, 'project_version_regions', 'project_version_id', 'region_id')
-            ->using(CakupanWilayahProyek::class)
-            ->withPivot(['id', 'is_primary'])
-            ->withTimestamps();
+        return $this->belongsTo(self::class, 'revises_id');
+    }
+
+    /** @return HasMany<self, $this> */
+    public function revisi(): HasMany
+    {
+        return $this->hasMany(self::class, 'revises_id');
+    }
+
+    /** @return HasMany<UmpanBalik, $this> */
+    public function umpanBalik(): HasMany
+    {
+        return $this->hasMany(UmpanBalik::class, 'apbd_id');
     }
 }

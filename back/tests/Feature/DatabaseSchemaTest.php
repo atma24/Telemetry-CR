@@ -3,22 +3,11 @@
 use App\Models\Pengguna;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Ramsey\Uuid\Uuid;
 
-/*
-|--------------------------------------------------------------------------
-| Schema fixture helpers
-|--------------------------------------------------------------------------
-|
-| The domain tables have no Eloquent models yet, so the fixtures below write
-| rows straight to the database. Each helper returns the identifier that the
-| next call needs. The identity and the version are separate so a test can
-| create two versions of the same record.
-|
-*/
-
-function createIdentity(string $entity, string $userId): string
+function createSchemaIdentity(string $entity, string $userId): string
 {
     $id = Str::uuid7()->toString();
     $now = now();
@@ -26,11 +15,10 @@ function createIdentity(string $entity, string $userId): string
     match ($entity) {
         'region' => DB::table('regions')->insert(['id' => $id, 'created_at' => $now, 'updated_at' => $now]),
         'facility' => DB::table('facilities')->insert(['id' => $id, 'created_at' => $now, 'updated_at' => $now]),
-        'project' => DB::table('projects')->insert(['id' => $id, 'created_at' => $now, 'updated_at' => $now]),
         'dataset' => DB::table('datasets')->insert([
             'id' => $id,
             'title' => 'Dataset',
-            'slug' => 'dataset',
+            'slug' => Str::uuid7()->toString(),
             'lifecycle_status' => 'active',
             'created_by' => $userId,
             'created_at' => $now,
@@ -41,7 +29,7 @@ function createIdentity(string $entity, string $userId): string
     return $id;
 }
 
-function createCategory(string $userId): string
+function createSchemaCategory(): string
 {
     $id = Str::uuid7()->toString();
 
@@ -56,11 +44,10 @@ function createCategory(string $userId): string
     return $id;
 }
 
-function createVersion(string $entity, string $identityId, string $userId, int $versionNo, string $status): void
+function createSchemaVersion(string $entity, string $identityId, string $userId, int $versionNo, string $status): void
 {
     $id = Str::uuid7()->toString();
     $now = now();
-    $categoryId = createCategory($userId);
 
     match ($entity) {
         'region' => DB::table('region_versions')->insert([
@@ -80,19 +67,8 @@ function createVersion(string $entity, string $identityId, string $userId, int $
             'facility_id' => $identityId,
             'version_no' => $versionNo,
             'name' => 'Facility version '.$versionNo,
-            'category_id' => $categoryId,
-            'region_id' => createIdentity('region', $userId),
-            'publication_status' => $status,
-            'created_by' => $userId,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]),
-        'project' => DB::table('project_versions')->insert([
-            'id' => $id,
-            'project_id' => $identityId,
-            'version_no' => $versionNo,
-            'name' => 'Project version '.$versionNo,
-            'category_id' => $categoryId,
+            'category_id' => createSchemaCategory(),
+            'region_id' => createSchemaIdentity('region', $userId),
             'publication_status' => $status,
             'created_by' => $userId,
             'created_at' => $now,
@@ -110,6 +86,29 @@ function createVersion(string $entity, string $identityId, string $userId, int $
     };
 }
 
+/** @return array<string, mixed> */
+function apbdSchemaAttributes(string $creatorId, array $overrides = []): array
+{
+    $now = now();
+
+    return array_merge([
+        'id' => Str::uuid7()->toString(),
+        'periode_data' => '202403',
+        'tanggal' => '2024-03-31',
+        'kode_opd' => '001.02',
+        'nama_opd' => 'Dinas Umum',
+        'akun_jenis' => '5',
+        'nama_akun' => 'Belanja Operasional',
+        'anggaran' => '1000.00',
+        'realisasi' => '800.00',
+        'source_fingerprint' => hash('sha256', 'schema-test-fingerprint'),
+        'publication_status' => 'draft',
+        'created_by' => $creatorId,
+        'created_at' => $now,
+        'updated_at' => $now,
+    ], $overrides);
+}
+
 test('a user is identified by a version 7 uuid', function () {
     $user = Pengguna::factory()->create();
 
@@ -117,44 +116,45 @@ test('a user is identified by a version 7 uuid', function () {
     expect(Uuid::fromString($user->id)->getVersion())->toBe(7);
 });
 
-test('a record keeps one published version while other versions stay unpublished', function () {
+test('a region keeps one published version while other versions stay unpublished', function () {
     $user = Pengguna::factory()->create();
-    $regionId = createIdentity('region', $user->id);
+    $regionId = createSchemaIdentity('region', $user->id);
 
-    createVersion('region', $regionId, $user->id, 1, 'draft');
-    createVersion('region', $regionId, $user->id, 2, 'published');
-    createVersion('region', $regionId, $user->id, 3, 'draft');
+    createSchemaVersion('region', $regionId, $user->id, 1, 'draft');
+    createSchemaVersion('region', $regionId, $user->id, 2, 'published');
+    createSchemaVersion('region', $regionId, $user->id, 3, 'draft');
 
     expect(DB::table('region_versions')->where('region_id', $regionId)->where('publication_status', 'published')->count())
         ->toBe(1);
 });
 
-test('a second published version of the same record is rejected', function (string $entity) {
+test('a second published version of the same region, facility, or dataset is rejected', function (string $entity) {
     $user = Pengguna::factory()->create();
-    $identityId = createIdentity($entity, $user->id);
+    $identityId = createSchemaIdentity($entity, $user->id);
 
-    createVersion($entity, $identityId, $user->id, 1, 'published');
+    createSchemaVersion($entity, $identityId, $user->id, 1, 'published');
 
-    expect(fn () => createVersion($entity, $identityId, $user->id, 2, 'published'))
+    expect(fn () => createSchemaVersion($entity, $identityId, $user->id, 2, 'published'))
         ->toThrow(QueryException::class);
-})->with(['region', 'facility', 'project', 'dataset']);
+})->with(['region', 'facility', 'dataset']);
 
-test('feedback may reference one target record', function () {
+test('feedback may reference one APBD record', function () {
     $user = Pengguna::factory()->create();
-    $regionId = createIdentity('region', $user->id);
+    $apbdId = Str::uuid7()->toString();
+    DB::table('apbd')->insert(apbdSchemaAttributes($user->id, ['id' => $apbdId]));
 
     DB::table('feedbacks')->insert([
         'id' => Str::uuid7()->toString(),
         'user_id' => $user->id,
-        'region_id' => $regionId,
-        'subject' => 'Wrong name',
-        'message' => 'This region is named incorrectly.',
+        'apbd_id' => $apbdId,
+        'subject' => 'Incorrect budget value',
+        'message' => 'Please review this published APBD row.',
         'status' => 'submitted',
         'created_at' => now(),
         'updated_at' => now(),
     ]);
 
-    expect(DB::table('feedbacks')->where('region_id', $regionId)->count())->toBe(1);
+    expect(DB::table('feedbacks')->where('apbd_id', $apbdId)->count())->toBe(1);
 });
 
 test('general feedback without a target record is accepted', function () {
@@ -179,8 +179,8 @@ test('feedback referencing two target records is rejected', function () {
     expect(fn () => DB::table('feedbacks')->insert([
         'id' => Str::uuid7()->toString(),
         'user_id' => $user->id,
-        'region_id' => createIdentity('region', $user->id),
-        'dataset_id' => createIdentity('dataset', $user->id),
+        'region_id' => createSchemaIdentity('region', $user->id),
+        'dataset_id' => createSchemaIdentity('dataset', $user->id),
         'subject' => 'Ambiguous',
         'message' => 'This feedback points at two records at once.',
         'status' => 'submitted',
@@ -221,35 +221,17 @@ test('rejected feedback with a rejection reason is accepted', function () {
         ->toBe('The referenced record does not exist.');
 });
 
-test('project progress is limited to the 0 to 100 range', function (float $progress) {
-    $user = Pengguna::factory()->create();
-    $projectId = createIdentity('project', $user->id);
-
-    expect(fn () => DB::table('project_versions')->insert([
-        'id' => Str::uuid7()->toString(),
-        'project_id' => $projectId,
-        'version_no' => 1,
-        'name' => 'Out of range progress',
-        'category_id' => createCategory($user->id),
-        'progress_percentage' => $progress,
-        'publication_status' => 'draft',
-        'created_by' => $user->id,
-        'created_at' => now(),
-        'updated_at' => now(),
-    ]))->toThrow(QueryException::class);
-})->with([100.01, -0.01]);
-
 test('facility coordinates are limited to the valid geographic range', function (string $column, float $value) {
     $user = Pengguna::factory()->create();
-    $facilityId = createIdentity('facility', $user->id);
+    $facilityId = createSchemaIdentity('facility', $user->id);
 
     expect(fn () => DB::table('facility_versions')->insert([
         'id' => Str::uuid7()->toString(),
         'facility_id' => $facilityId,
         'version_no' => 1,
         'name' => 'Out of range coordinates',
-        'category_id' => createCategory($user->id),
-        'region_id' => createIdentity('region', $user->id),
+        'category_id' => createSchemaCategory(),
+        'region_id' => createSchemaIdentity('region', $user->id),
         $column => $value,
         'publication_status' => 'draft',
         'created_by' => $user->id,
@@ -263,78 +245,30 @@ test('facility coordinates are limited to the valid geographic range', function 
     'longitude beyond the antimeridian to the west' => ['longitude', -180.01],
 ]);
 
-test('a project version keeps at most one primary region', function () {
+test('duplicate APBD fingerprints are not enforced as a database uniqueness constraint', function () {
     $user = Pengguna::factory()->create();
-    $projectId = createIdentity('project', $user->id);
-    $versionId = Str::uuid7()->toString();
-    $now = now();
+    $fingerprint = hash('sha256', 'same candidate');
 
-    DB::table('project_versions')->insert([
-        'id' => $versionId,
-        'project_id' => $projectId,
-        'version_no' => 1,
-        'name' => 'Multi region project',
-        'category_id' => createCategory($user->id),
-        'publication_status' => 'draft',
-        'created_by' => $user->id,
-        'created_at' => $now,
-        'updated_at' => $now,
-    ]);
+    DB::table('apbd')->insert(apbdSchemaAttributes($user->id, ['source_fingerprint' => $fingerprint]));
+    DB::table('apbd')->insert(apbdSchemaAttributes($user->id, ['source_fingerprint' => $fingerprint]));
 
-    DB::table('project_version_regions')->insert([
-        'id' => Str::uuid7()->toString(),
-        'project_version_id' => $versionId,
-        'region_id' => createIdentity('region', $user->id),
-        'is_primary' => true,
-        'created_at' => $now,
-        'updated_at' => $now,
-    ]);
-
-    expect(fn () => DB::table('project_version_regions')->insert([
-        'id' => Str::uuid7()->toString(),
-        'project_version_id' => $versionId,
-        'region_id' => createIdentity('region', $user->id),
-        'is_primary' => true,
-        'created_at' => $now,
-        'updated_at' => $now,
-    ]))->toThrow(QueryException::class);
+    expect(DB::table('apbd')->where('source_fingerprint', $fingerprint)->count())->toBe(2);
 });
 
-test('a project version may cover several regions as long as one is primary', function () {
+test('the APBD schema rejects negative amounts and invalid periods', function (string $field, string $value) {
     $user = Pengguna::factory()->create();
-    $projectId = createIdentity('project', $user->id);
-    $versionId = Str::uuid7()->toString();
-    $now = now();
 
-    DB::table('project_versions')->insert([
-        'id' => $versionId,
-        'project_id' => $projectId,
-        'version_no' => 1,
-        'name' => 'Multi region project',
-        'category_id' => createCategory($user->id),
-        'publication_status' => 'draft',
-        'created_by' => $user->id,
-        'created_at' => $now,
-        'updated_at' => $now,
-    ]);
+    expect(fn () => DB::table('apbd')->insert(apbdSchemaAttributes($user->id, [$field => $value])))
+        ->toThrow(QueryException::class);
+})->with([
+    'negative budget' => ['anggaran', '-1.00'],
+    'negative realization' => ['realisasi', '-0.01'],
+    'invalid period month' => ['periode_data', '202413'],
+]);
 
-    DB::table('project_version_regions')->insert([
-        'id' => Str::uuid7()->toString(),
-        'project_version_id' => $versionId,
-        'region_id' => createIdentity('region', $user->id),
-        'is_primary' => true,
-        'created_at' => $now,
-        'updated_at' => $now,
-    ]);
-
-    DB::table('project_version_regions')->insert([
-        'id' => Str::uuid7()->toString(),
-        'project_version_id' => $versionId,
-        'region_id' => createIdentity('region', $user->id),
-        'is_primary' => false,
-        'created_at' => $now,
-        'updated_at' => $now,
-    ]);
-
-    expect(DB::table('project_version_regions')->where('project_version_id', $versionId)->count())->toBe(2);
+test('the current schema removes project tables without rewriting their migrations', function () {
+    expect(Schema::hasTable('apbd'))->toBeTrue()
+        ->and(Schema::hasTable('projects'))->toBeFalse()
+        ->and(Schema::hasTable('project_versions'))->toBeFalse()
+        ->and(Schema::hasTable('project_version_regions'))->toBeFalse();
 });

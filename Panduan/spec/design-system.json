@@ -182,7 +182,7 @@
     "never_fabricate": [
       "public datasets",
       "facility information",
-      "project progress",
+      "APBD amounts or totals",
       "data sources",
       "ML predictions"
     ],

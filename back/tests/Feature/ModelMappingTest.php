@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Wilayah\PublicationStatus;
+use App\Models\Apbd\Apbd;
 use App\Models\Dataset\BarisDataset;
 use App\Models\Dataset\Dataset;
 use App\Models\Dataset\VersiDataset;
@@ -12,14 +13,10 @@ use App\Models\Kategori;
 use App\Models\LogAudit;
 use App\Models\PekerjaanImpor;
 use App\Models\Pengguna;
-use App\Models\Proyek\CakupanWilayahProyek;
-use App\Models\Proyek\Proyek;
-use App\Models\Proyek\VersiProyek;
 use App\Models\SumberData;
 use App\Models\Wilayah\VersiWilayah;
 use App\Models\Wilayah\Wilayah;
 use Carbon\CarbonImmutable;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 it('maps every Indonesian model explicitly to its existing database table', function () {
     $tablesByModel = [
@@ -32,9 +29,7 @@ it('maps every Indonesian model explicitly to its existing database table', func
         VersiWilayah::class => 'region_versions',
         Fasilitas::class => 'facilities',
         VersiFasilitas::class => 'facility_versions',
-        Proyek::class => 'projects',
-        VersiProyek::class => 'project_versions',
-        CakupanWilayahProyek::class => 'project_version_regions',
+        Apbd::class => 'apbd',
         Dataset::class => 'datasets',
         VersiDataset::class => 'dataset_versions',
         BarisDataset::class => 'dataset_rows',
@@ -47,45 +42,33 @@ it('maps every Indonesian model explicitly to its existing database table', func
     }
 });
 
-it('persists UUID project-region pivot records with primary and timestamp attributes', function () {
+it('persists APBD revision relationships', function () {
     $creator = Pengguna::factory()->create();
-    $category = Kategori::query()->create(['name' => 'Transport', 'slug' => 'transport']);
-    $project = Proyek::query()->create();
-    $version = $project->versi()->create([
-        'version_no' => 1,
-        'name' => 'Bridge repairs',
-        'category_id' => $category->id,
-        'publication_status' => PublicationStatus::Draft,
+    $original = Apbd::factory()->published()->create(['created_by' => $creator->id]);
+    $revision = Apbd::factory()->create([
+        'revises_id' => $original->id,
         'created_by' => $creator->id,
     ]);
-    $primaryRegion = Wilayah::query()->forceCreate([]);
-    $secondaryRegion = Wilayah::query()->forceCreate([]);
 
-    $version->wilayahCakupan()->attach($primaryRegion->id, ['is_primary' => true]);
-    $version->wilayahCakupan()->attach($secondaryRegion->id, ['is_primary' => false]);
-
-    $version->load('wilayahCakupan');
-    $primaryPivot = $version->wilayahCakupan->firstWhere('id', $primaryRegion->id)?->pivot;
-
-    expect($version->wilayahCakupan)->toHaveCount(2)
-        ->and($primaryPivot)->toBeInstanceOf(CakupanWilayahProyek::class)
-        ->and($primaryPivot->is_primary)->toBeTrue()
-        ->and($primaryPivot->id)->toBeUuid()
-        ->and($primaryPivot->created_at)->toBeInstanceOf(CarbonImmutable::class);
+    expect($revision->revisiDari->id)->toBe($original->id)
+        ->and($original->revisi->firstOrFail()->id)->toBe($revision->id);
 });
 
-it('connects the Indonesian relationships to the actual foreign keys and pivot model', function () {
+it('connects the Indonesian relationships to the actual foreign keys', function () {
     expect((new Wilayah)->versi()->getRelated())->toBeInstanceOf(VersiWilayah::class)
         ->and((new Wilayah)->versiTerpublikasi()->getRelated())->toBeInstanceOf(VersiWilayah::class)
         ->and((new Wilayah)->versi()->getForeignKeyName())->toBe('region_id')
         ->and((new Fasilitas)->versi()->getForeignKeyName())->toBe('facility_id')
-        ->and((new Proyek)->versi()->getForeignKeyName())->toBe('project_id')
         ->and((new Dataset)->versi()->getForeignKeyName())->toBe('dataset_id')
+        ->and((new Apbd)->umpanBalik()->getForeignKeyName())->toBe('apbd_id')
+        ->and((new Apbd)->pembuat()->getForeignKeyName())->toBe('created_by')
+        ->and((new Apbd)->peninjau()->getForeignKeyName())->toBe('reviewed_by')
+        ->and((new Apbd)->revisiDari()->getForeignKeyName())->toBe('revises_id')
+        ->and((new Apbd)->sumberData()->getForeignKeyName())->toBe('source_id')
+        ->and((new Apbd)->pekerjaanImpor()->getForeignKeyName())->toBe('import_job_id')
         ->and((new VersiWilayah)->wilayahInduk()->getForeignKeyName())->toBe('parent_region_id')
         ->and((new VersiWilayah)->sumberData()->getForeignKeyName())->toBe('source_id')
         ->and((new VersiFasilitas)->pekerjaanImpor()->getForeignKeyName())->toBe('import_job_id')
-        ->and((new VersiProyek)->wilayahCakupan())->toBeInstanceOf(BelongsToMany::class)
-        ->and((new VersiProyek)->wilayahCakupan()->getPivotClass())->toBe(CakupanWilayahProyek::class)
         ->and((new VersiDataset)->versiDasar()->getForeignKeyName())->toBe('base_version_id')
         ->and((new VersiDataset)->sumberData()->getForeignKeyName())->toBe('source_id')
         ->and((new VersiDataset)->baris()->getForeignKeyName())->toBe('dataset_version_id')
@@ -93,9 +76,10 @@ it('connects the Indonesian relationships to the actual foreign keys and pivot m
         ->and((new UmpanBalik)->pengguna()->getForeignKeyName())->toBe('user_id')
         ->and((new Wilayah)->umpanBalik()->getForeignKeyName())->toBe('region_id')
         ->and((new VersiFasilitas)->kategori()->getForeignKeyName())->toBe('category_id')
-        ->and((new VersiProyek)->pembuat()->getForeignKeyName())->toBe('created_by')
         ->and((new VersiDataset)->peninjau()->getForeignKeyName())->toBe('reviewed_by')
         ->and((new PekerjaanImpor)->sumberData()->getForeignKeyName())->toBe('source_id')
+        ->and((new PekerjaanImpor)->apbd()->getForeignKeyName())->toBe('import_job_id')
+        ->and((new SumberData)->apbd()->getForeignKeyName())->toBe('source_id')
         ->and((new LogAudit)->pelaku()->getForeignKeyName())->toBe('actor_user_id')
         ->and((new RiwayatUmpanBalik)->pelaku()->getForeignKeyName())->toBe('actor_user_id');
 });

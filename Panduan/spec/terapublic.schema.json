@@ -1,12 +1,14 @@
 {
   "spec_name": "TeraPublic Conceptual Database Schema",
-  "spec_version": "1.1-draft",
-  "status": "planning-baseline-laravel-stack",
+  "spec_version": "1.2-apbd",
+  "status": "apbd-module",
   "database": "PostgreSQL",
   "notes": [
     "This is a conceptual schema, not executable DDL or Laravel migrations.",
     "Laravel migrations and Eloquent own the operational product schema.",
-    "Finalize columns, types, constraints, indexes, and versioning before migrations.",
+    "APBD records use the eight source dataset columns plus publication and provenance fields.",
+    "The source fingerprint is indexed but non-unique; it reports duplicate candidates and never defines an APBD natural key.",
+    "Project migrations remain historical; the forward-only APBD migration removes project tables and detaches legacy project feedback targets.",
     "Use one Admin role; citizen access rules are defined in docs/PROJECT_SPEC.md.",
     "ML use case and model are intentionally undecided pending dataset audit.",
     "Python AI service must not mutate Laravel-owned tables directly unless table ownership and service contract are explicitly documented."
@@ -419,164 +421,36 @@
       ]
     },
     {
-      "name": "projects",
-      "purpose": "Stable identity for a development project",
+      "name": "apbd",
+      "purpose": "Source-backed regional budget dataset rows with draft, validation, publication, provenance, and revision history",
       "fields": [
-        {
-          "name": "id",
-          "type": "uuid",
-          "pk": true
-        },
-        {
-          "name": "external_key",
-          "type": "varchar",
-          "nullable": true
-        },
-        {
-          "name": "created_at",
-          "type": "timestamptz",
-          "required": true
-        }
-      ]
-    },
-    {
-      "name": "project_versions",
-      "purpose": "Versioned development project attributes",
-      "fields": [
-        {
-          "name": "id",
-          "type": "uuid",
-          "pk": true
-        },
-        {
-          "name": "project_id",
-          "type": "uuid",
-          "fk": "projects.id",
-          "required": true
-        },
-        {
-          "name": "version_no",
-          "type": "integer",
-          "required": true
-        },
-        {
-          "name": "name",
-          "type": "varchar",
-          "required": true
-        },
-        {
-          "name": "category_id",
-          "type": "uuid",
-          "fk": "categories.id",
-          "required": true
-        },
-        {
-          "name": "agency",
-          "type": "varchar",
-          "nullable": true
-        },
-        {
-          "name": "start_date",
-          "type": "date",
-          "nullable": true
-        },
-        {
-          "name": "planned_end_date",
-          "type": "date",
-          "nullable": true
-        },
-        {
-          "name": "progress_percentage",
-          "type": "numeric",
-          "nullable": true
-        },
-        {
-          "name": "project_status",
-          "type": "varchar",
-          "nullable": true
-        },
-        {
-          "name": "attributes",
-          "type": "jsonb",
-          "nullable": true
-        },
-        {
-          "name": "source_id",
-          "type": "uuid",
-          "fk": "data_sources.id",
-          "nullable": true
-        },
-        {
-          "name": "import_job_id",
-          "type": "uuid",
-          "fk": "import_jobs.id",
-          "nullable": true
-        },
-        {
-          "name": "source_original_data",
-          "type": "jsonb",
-          "nullable": true
-        },
-        {
-          "name": "publication_status",
-          "type": "publication_status",
-          "required": true
-        },
-        {
-          "name": "created_by",
-          "type": "uuid",
-          "fk": "users.id",
-          "required": true
-        },
-        {
-          "name": "reviewed_by",
-          "type": "uuid",
-          "fk": "users.id",
-          "nullable": true
-        },
-        {
-          "name": "published_at",
-          "type": "timestamptz",
-          "nullable": true
-        }
+        { "name": "id", "type": "uuid", "pk": true },
+        { "name": "periode_data", "type": "varchar(6)", "required": true },
+        { "name": "tanggal", "type": "date", "required": true },
+        { "name": "kode_opd", "type": "varchar(100)", "required": true },
+        { "name": "nama_opd", "type": "varchar(255)", "required": true },
+        { "name": "akun_jenis", "type": "varchar(100)", "required": true },
+        { "name": "nama_akun", "type": "varchar(255)", "required": true },
+        { "name": "anggaran", "type": "decimal(38,2)", "required": true },
+        { "name": "realisasi", "type": "decimal(38,2)", "required": true },
+        { "name": "source_fingerprint", "type": "varchar(64)", "required": true, "indexed": true, "unique": false },
+        { "name": "revises_id", "type": "uuid", "fk": "apbd.id", "nullable": true },
+        { "name": "source_id", "type": "uuid", "fk": "data_sources.id", "nullable": true },
+        { "name": "import_job_id", "type": "uuid", "fk": "import_jobs.id", "nullable": true },
+        { "name": "source_original_data", "type": "jsonb", "nullable": true },
+        { "name": "publication_status", "type": "publication_status", "required": true },
+        { "name": "created_by", "type": "uuid", "fk": "users.id", "required": true },
+        { "name": "reviewed_by", "type": "uuid", "fk": "users.id", "nullable": true },
+        { "name": "published_at", "type": "timestamptz", "nullable": true },
+        { "name": "created_at", "type": "timestamp", "nullable": true },
+        { "name": "updated_at", "type": "timestamp", "nullable": true }
       ],
       "constraints": [
-        "unique(project_id, version_no)",
-        "Progress must be between 0 and 100 when present",
-        "At most one current published version per project",
-        "A project version may cover multiple regions through project_version_regions; permit at most one primary region per project version."
-      ]
-    },
-    {
-      "name": "project_version_regions",
-      "purpose": "Join table mapping a project version to one or more administrative regions",
-      "fields": [
-        {
-          "name": "id",
-          "type": "uuid",
-          "pk": true
-        },
-        {
-          "name": "project_version_id",
-          "type": "uuid",
-          "fk": "project_versions.id",
-          "required": true
-        },
-        {
-          "name": "region_id",
-          "type": "uuid",
-          "fk": "regions.id",
-          "required": true
-        },
-        {
-          "name": "is_primary",
-          "type": "boolean",
-          "required": true
-        }
-      ],
-      "constraints": [
-        "unique(project_version_id, region_id)",
-        "At most one is_primary=true row per project version (partial unique index or equivalent transaction-safe rule)."
+        "periode_data uses YYYYMM with a valid month",
+        "anggaran and realisasi must be nonnegative",
+        "source_fingerprint is a non-unique duplicate-candidate index; duplicates are reported and not overwritten during import",
+        "A correction of a published row is drafted as a revision; the previous row remains public until publication",
+        "No unique constraint is inferred for a combination of APBD dataset columns"
       ]
     },
     {
@@ -796,6 +670,11 @@
           "nullable": true
         },
         {
+          "name": "error_report_path",
+          "type": "text",
+          "nullable": true
+        },
+        {
           "name": "initiated_by",
           "type": "uuid",
           "fk": "users.id",
@@ -815,7 +694,7 @@
     },
     {
       "name": "feedbacks",
-      "purpose": "Citizen feedback or suggestions; general or related to at most one facility, project, region, or dataset",
+      "purpose": "Citizen feedback or suggestions; general or related to at most one facility, APBD record, region, or dataset",
       "fields": [
         {
           "name": "id",
@@ -835,9 +714,9 @@
           "nullable": true
         },
         {
-          "name": "project_id",
+          "name": "apbd_id",
           "type": "uuid",
-          "fk": "projects.id",
+          "fk": "apbd.id",
           "nullable": true
         },
         {
@@ -885,7 +764,7 @@
       ],
       "constraints": [
         "Only owner can read citizen feedback history; Admin can manage all feedback",
-        "A feedback may be general (all target FKs null) or reference at most one of facility_id, project_id, region_id, dataset_id",
+        "A feedback may be general (all target FKs null) or reference at most one of facility_id, apbd_id, region_id, dataset_id",
         "rejection_reason is required whenever status is rejected"
       ]
     },
@@ -1160,6 +1039,13 @@
       "description": "Users create/review versions"
     },
     {
+      "from": "users",
+      "to": "apbd",
+      "cardinality": "1:N",
+      "via": "created_by/reviewed_by",
+      "description": "Users create/review APBD records"
+    },
+    {
       "from": "regions",
       "to": "region_versions",
       "cardinality": "1:N",
@@ -1182,13 +1068,13 @@
     },
     {
       "from": "categories",
-      "to": "facility_versions/project_versions/datasets",
+      "to": "facility_versions/datasets",
       "cardinality": "1:N",
       "description": "Optional or required classification depending on entity"
     },
     {
       "from": "data_sources",
-      "to": "region_versions/facility_versions/project_versions/dataset_versions/import_jobs/knowledge_documents",
+      "to": "region_versions/facility_versions/apbd/dataset_versions/import_jobs/knowledge_documents",
       "cardinality": "1:N",
       "description": "Source attribution and provenance"
     },
@@ -1200,11 +1086,11 @@
       "description": "Version history for facility identity"
     },
     {
-      "from": "projects",
-      "to": "project_versions",
-      "cardinality": "1:N",
-      "via": "project_id",
-      "description": "Version history for project identity"
+      "from": "apbd",
+      "to": "apbd",
+      "cardinality": "1:N optional self-reference",
+      "via": "revises_id",
+      "description": "A correction row points to the prior APBD row and replaces it publicly only after publication"
     },
     {
       "from": "datasets",
@@ -1222,7 +1108,7 @@
     },
     {
       "from": "import_jobs",
-      "to": "facility_versions/project_versions/dataset_versions/region_versions",
+      "to": "facility_versions/apbd/dataset_versions/region_versions",
       "cardinality": "1:N optional",
       "via": "import_job_id",
       "description": "Import provenance where imported"
@@ -1277,18 +1163,11 @@
       "description": "Laravel database-backed sessions for authenticated users"
     },
     {
-      "from": "project_versions",
-      "to": "project_version_regions",
-      "cardinality": "1:N",
-      "via": "project_version_id",
-      "description": "A project version may cover multiple regions"
-    },
-    {
-      "from": "regions",
-      "to": "project_version_regions",
-      "cardinality": "1:N",
-      "via": "region_id",
-      "description": "Region covered by a project version"
+      "from": "apbd",
+      "to": "feedbacks",
+      "cardinality": "1:N optional",
+      "via": "apbd_id",
+      "description": "Feedback can concern a published APBD record"
     },
     {
       "from": "regions",
@@ -1306,7 +1185,11 @@
     }
   ],
   "business_rules": [
-    "Only one version of each region/facility/project/dataset may be current and published at a time.",
+    "Only published records are returned by public APIs.",
+    "APBD data consists of periode_data, tanggal, kode_opd, nama_opd, akun_jenis, nama_akun, anggaran, and realisasi.",
+    "APBD fingerprints are non-unique duplicate candidates; importing a matching row reports it and does not overwrite existing data.",
+    "Do not infer a unique constraint from any combination of APBD dataset columns.",
+    "APBD corrections preserve the previous published row until the draft revision is validated and published.",
     "New data is drafted, validated, then published.",
     "Corrections preserve original source data and history.",
     "Public reads expose published versions only.",
@@ -1317,7 +1200,7 @@
     "Laravel REST API owns operational records, authorization, imports, publication, and audit behavior.",
     "First-party Next.js SPA uses Laravel Sanctum cookie/session authentication when frontend and API share a top-level domain; configure CSRF, stateful domains, CORS, and credentials.",
     "Python handles RAG and future ML; service-to-service contracts and table ownership must be documented.",
-    "A feedback item may be general or reference at most one target among facility, project, region, and dataset.",
-    "Project versions may map to multiple regions through project_version_regions, with at most one primary region."
+    "A feedback item may be general or reference at most one target among facility, APBD record, region, and dataset.",
+    "Legacy feedback targets that pointed to removed project rows are retained as general feedback; they are not guessed into APBD references."
   ]
 }

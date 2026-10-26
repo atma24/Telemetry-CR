@@ -10,16 +10,16 @@
 |---|---|---|---|
 | Public Visitor | View monitoring dashboard | No | Published indicators/charts only |
 | Public Visitor | Search/browse catalog | No | Published dataset metadata and public content |
-| Public Visitor | View region/facility/project details | No | Published details only |
+| Public Visitor | View region/facility/APBD records | No | Published details only |
 | Registered Citizen | Register/login/logout/current-user | Yes where applicable | Authenticated account/session |
 | Registered Citizen | Submit feedback | Yes | Feedback created with `submitted` status |
 | Registered Citizen | View feedback history | Yes | Only own feedback, history and Admin responses |
 | Registered Citizen | Use RAG chatbot | Yes | Grounded answer with citations where available |
 | Admin | Manage regions | Admin | Draft/versioned region records |
 | Admin | Manage facilities | Admin | Draft/versioned facility records |
-| Admin | Manage projects | Admin | Draft/versioned project records; may link to multiple regions |
+| Admin | Manage APBD records | Admin | Draft rows from the eight source columns; CSV/XLSX import and revision workflow |
 | Admin | Manage datasets | Admin | Catalog metadata and versions |
-| Admin | Import data | Admin | Import job, preview, validation results and error report |
+| Admin | Import APBD data | Admin | Direct CSV/XLSX import, validation results and Admin-only error report |
 | Admin | Validate/publish data | Admin | Approved version becomes public |
 | Admin | Correct/withdraw published data | Admin | History retained; current public version changes only according to publication rules |
 | Admin | Manage feedback | Admin | Status changes/responses recorded; rejected feedback must have a reason |
@@ -28,10 +28,10 @@
 
 ## Import and publication workflow
 1. Admin selects a target type and uploads CSV/XLSX (initial file formats) or enters a record manually.
-2. System previews content and supports field mapping where applicable.
+2. For APBD, system reads normalized headers matching the eight source columns; this API does not provide a preview or manual mapping step.
 3. System validates schema, required fields, types, region/category references, and duplicate candidates.
 4. System records rejected rows and reasons.
-5. Valid data is saved as a draft version with source/import provenance.
+5. Valid APBD rows are saved as drafts with source/import provenance.
 6. Admin validates and publishes the version.
 7. Public APIs serve published versions only.
 
@@ -44,7 +44,7 @@
 
 ## Feedback workflow
 1. Citizen logs in and submits feedback.
-2. Feedback can be general or reference at most one target: facility, project, region, or dataset.
+2. Feedback can be general or reference at most one target: facility, APBD record, region, or dataset.
 3. Initial status is `submitted`.
 4. Admin moves status to `in_review`, `in_progress`, `resolved`, or `rejected` as appropriate.
 5. Rejection requires a reason.

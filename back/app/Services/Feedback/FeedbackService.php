@@ -13,16 +13,16 @@ class FeedbackService
         string $subject,
         string $message,
         ?string $facilityId,
-        ?string $projectId,
+        ?string $apbdId,
         ?string $regionId,
         ?string $datasetId,
         string $userId,
     ): UmpanBalik {
-        return DB::transaction(function () use ($subject, $message, $facilityId, $projectId, $regionId, $datasetId, $userId): UmpanBalik {
+        return DB::transaction(function () use ($subject, $message, $facilityId, $apbdId, $regionId, $datasetId, $userId): UmpanBalik {
             $feedback = UmpanBalik::query()->create([
                 'user_id' => $userId,
                 'facility_id' => $facilityId,
-                'project_id' => $projectId,
+                'apbd_id' => $apbdId,
                 'region_id' => $regionId,
                 'dataset_id' => $datasetId,
                 'subject' => $subject,
@@ -45,7 +45,7 @@ class FeedbackService
     public function adminIndex(int $perPage = 15): LengthAwarePaginator
     {
         return UmpanBalik::query()
-            ->with(['pengguna', 'fasilitas', 'proyek', 'wilayah', 'dataset', 'riwayat'])
+            ->with(['pengguna', 'fasilitas', 'apbd', 'wilayah', 'dataset', 'riwayat'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate(max(1, min($perPage, 100)));

@@ -19,7 +19,7 @@ class FeedbackController extends Controller
             $request->string('subject')->toString(),
             $request->string('message')->toString(),
             $request->filled('facility_id') ? $request->string('facility_id')->toString() : null,
-            $request->filled('project_id') ? $request->string('project_id')->toString() : null,
+            $request->filled('apbd_id') ? $request->string('apbd_id')->toString() : null,
             $request->filled('region_id') ? $request->string('region_id')->toString() : null,
             $request->filled('dataset_id') ? $request->string('dataset_id')->toString() : null,
             $request->user()->id,

@@ -25,7 +25,7 @@ Do not automatically generate or repeat these patterns:
 - Animating every heading, card, counter, icon, and section just because an animation library is installed.
 - A 3D globe/map/scene that adds weight but does not improve public understanding of the data.
 - Using cards for every piece of information. Use tables for records, charts for trends, maps for spatial questions, and cards only for summaries or grouped content.
-- Fake metrics, invented project progress, fabricated data provenance, misleading charts, or plausible-looking placeholder figures presented as real.
+- Fake metrics, invented APBD values, fabricated data provenance, misleading charts, or plausible-looking placeholder figures presented as real.
 - Generic Lorem Ipsum or unlabelled demo data in a public-facing screen.
 - Excessive pill badges, huge corner radii on every element, deep shadows, or arbitrary decorative icons.
 - Duplicate navigation patterns, icon-only controls without accessible names, or long pages full of repeated sections.
@@ -133,7 +133,7 @@ Expected routes may include:
 - `/dashboard` — public monitoring overview.
 - `/datasets` and `/datasets/[slug]` — data catalog/detail.
 - `/facilities` and `/facilities/[id]` — facilities if supported by the selected datasets.
-- `/projects` and `/projects/[id]` — development projects if supported by the selected datasets.
+- `/apbd` and `/apbd/[id]` — published APBD rows if supported by the selected source data.
 
 Public viewing must not require login. Only show published records. Clearly show source, period, last updated time, and limitations when those details are known.
 
@@ -149,7 +149,7 @@ Expected areas:
 - Overview/dashboard.
 - Regions.
 - Facilities.
-- Development projects.
+- APBD data management and imports.
 - Datasets/import jobs.
 - Draft validation/publication.
 - Feedback management.
@@ -192,7 +192,7 @@ src/
     auth/
     regions/
     facilities/
-    projects/
+    apbd/
     datasets/
     feedback/
     chatbot/
@@ -217,7 +217,7 @@ Rules:
 
 ## 10. Data integrity and honest UI
 
-- No invented public datasets, project progress, facility details, or prediction outputs.
+- No invented public datasets, APBD values/totals, facility details, or prediction outputs.
 - Clearly distinguish official/source data, manually curated data, and demo/mock data.
 - If demo seed data is needed during development, label it as demo data and keep it out of production defaults.
 - Show the source and update period when available.

@@ -9,7 +9,7 @@ Work one phase at a time. Do not scaffold every feature in one task. The existin
 
 ## Phase 1 — Finalize conceptual data model
 - Review `docs/ERD.mmd` against `spec/terapublic.schema.json`.
-- Resolve versioning/publication invariants, import provenance, session storage, project-to-multiple-region relation, and feedback target constraints.
+- Resolve versioning/publication invariants, import provenance, session storage, APBD source columns, and feedback target constraints.
 - Audit actual candidate DKI Jakarta datasets before freezing dataset-specific columns and deciding JSONB boundaries.
 - Only after review, finalize PostgreSQL types, constraints, indexes, and migration order.
 
@@ -30,15 +30,15 @@ Work one phase at a time. Do not scaffold every feature in one task. The existin
 - Implement data sources and audit logging.
 - Add the minimum necessary versioning mechanics and test them before domain imports.
 
-## Phase 5 — Facilities, projects, and datasets
-- Implement identity/version tables and relationships.
-- Implement source registry, import jobs, private file storage, preview, field mapping, validation, row errors, and idempotency/conflict handling.
+## Phase 5 — Facilities, APBD, and datasets
+- Implement the APBD eight-column data model, provenance, correction, and publication workflow.
+- Implement source registry, import jobs, private file storage, and APBD direct import using normalized headers, validation, row errors, and duplicate-candidate reporting; this API has no preview or manual mapping step.
 - Implement draft, publication, correction, withdrawal, and history semantics.
 - Use queues for imports that are too large/slow for a normal request.
 
 ## Phase 6 — Public data and monitoring
 - Implement endpoints that return published versions only.
-- Build the public catalog, facility/project details, and monitoring visualizations for actual datasets selected after audit.
+- Build public facility/APBD reads and monitoring for actual published source data; do not infer APBD totals or project details.
 - Show source/update periods when known; do not fabricate public values.
 
 ## Phase 7 — Feedback

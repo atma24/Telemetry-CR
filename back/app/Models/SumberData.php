@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Apbd\Apbd;
 use App\Models\Dataset\VersiDataset;
 use App\Models\Fasilitas\VersiFasilitas;
-use App\Models\Proyek\VersiProyek;
 use App\Models\Wilayah\VersiWilayah;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -36,10 +36,10 @@ class SumberData extends Model
         return $this->hasMany(VersiFasilitas::class, 'source_id');
     }
 
-    /** @return HasMany<VersiProyek, $this> */
-    public function versiProyek(): HasMany
+    /** @return HasMany<Apbd, $this> */
+    public function apbd(): HasMany
     {
-        return $this->hasMany(VersiProyek::class, 'source_id');
+        return $this->hasMany(Apbd::class, 'source_id');
     }
 
     /** @return HasMany<VersiDataset, $this> */

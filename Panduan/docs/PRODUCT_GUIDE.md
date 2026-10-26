@@ -11,7 +11,7 @@
 
 ## 1. Product in one paragraph
 
-TeraPublic is a civic-tech web platform that helps people understand public information through a clear, searchable, and source-attributed view of data about regions, public facilities, development projects, and other public-interest topics. It begins with DKI Jakarta as the pilot area while keeping the product structure cross-topic. People can freely browse published monitoring, datasets, and supported public information without creating an account. People must sign in to send feedback, track their own feedback, or use the evidence-based RAG chatbot. An Admin manages data sources, enters or imports data, validates and publishes it, handles feedback, and manages the approved knowledge sources used by the chatbot.
+TeraPublic is a civic-tech web platform that helps people understand public information through a clear, searchable, and source-attributed view of data about regions, public facilities, APBD rows, and other public-interest topics. It begins with DKI Jakarta as the pilot area while keeping the product structure cross-topic. People can freely browse published monitoring, datasets, and supported public information without creating an account. People must sign in to send feedback, track their own feedback, or use the evidence-based RAG chatbot. An Admin manages data sources, enters or imports data, validates and publishes it, handles feedback, and manages the approved knowledge sources used by the chatbot.
 
 ## 2. The problem TeraPublic addresses
 
@@ -20,7 +20,7 @@ Public data can be difficult to use even when it is technically available. Infor
 - What public information is available about a region or topic?
 - What does a particular public indicator actually show?
 - Which source, period, and definition support the information?
-- Is a location or project detail actually present in the available data, or is it unknown?
+- Are the source APBD values actually present in the available data, or are they unknown?
 - Where can a citizen send feedback and later see what happened to it?
 
 TeraPublic aims to make public information easier to discover, compare, and interpret, while clearly showing the source and limits of the available data.
@@ -35,7 +35,7 @@ Make public information easier to discover, understand, and use for civic awaren
 
 1. **Public browsing by default.** Published public information is viewable without login.
 2. **Traceable information.** Show the source, period, update date, units, and definitions when available.
-3. **No invented facts.** Do not make up dataset records, locations, budgets, project progress, accessibility features, or model predictions.
+3. **No invented facts.** Do not make up dataset records, locations, APBD values/totals, accessibility features, or model predictions.
 4. **Cross-topic, not unfocused.** The product can cover multiple public-interest topics, but the MVP only promises what the selected sources actually support.
 5. **Clear distinction between actual, derived, and unknown.** A sourced value, an aggregation computed by the application, and unavailable information must not be presented as the same thing.
 6. **Responsible correction.** Preserve original import/source values and the history of corrections.
@@ -50,7 +50,7 @@ Make public information easier to discover, understand, and use for civic awaren
 A person who wants to explore public information. They can:
 - open the public site and monitoring dashboard;
 - browse/search published datasets;
-- view available region, facility, and development-project information;
+- view available region, facility, and APBD information;
 - inspect charts, tables, and maps when supported by the source data;
 - read source attribution, period, update date, and limitations where available.
 
@@ -69,7 +69,7 @@ A registered citizen must not be able to read another citizen's feedback or chat
 
 There is one Admin role with full administrative access. Admin responsibilities include:
 - maintaining reference regions and categories;
-- adding or importing facility/project data;
+- adding or importing facility/APBD data;
 - managing dataset catalog metadata and import jobs;
 - reviewing validation errors and duplicates;
 - saving drafts, validating, publishing, superseding, or withdrawing data;
@@ -91,7 +91,7 @@ TeraPublic is cross-topic. Potential categories may include regional statistics,
 
 ### Data availability constraint
 
-The existence of a portal or dataset does not guarantee it contains individual locations, coordinates, per-project progress, budgets, contractors, accessibility attributes, or a full time series. Build only fields and visualizations that the inspected source supports. If information is missing, say it is unavailable rather than infer it as fact.
+The existence of a portal or dataset does not guarantee that it contains individual locations, coordinates, individual project progress, APBD totals, contractors, accessibility attributes, or a full time series. Build only fields and visualizations that the inspected source supports. An APBD row is not an individual project, and its amounts must not be aggregated or reinterpreted without an approved requirement. If information is missing, say it is unavailable rather than infer it as fact.
 
 ## 6. Public-facing experience
 
@@ -142,7 +142,7 @@ Never expose drafts, rejected rows, internal validation notes, private file path
 
 Purpose: provide a way to understand published data grouped by administrative region.
 
-Use the hierarchy Province → city/regency or administrative city → district → urban village when supported. Region detail pages may aggregate indicators and show related facilities/projects only if valid, published records support those views. RW/RT are not separate master-region levels in the initial scope.
+Use the hierarchy Province → city/regency or administrative city → district → urban village when supported. Region detail pages may show related facilities or published APBD rows only if valid source records support those views. RW/RT are not separate master-region levels in the initial scope.
 
 Store internal IDs and official region codes when available. Do not use a mutable region name as the database primary key.
 
@@ -157,13 +157,13 @@ Potential fields include name, facility category, address, administrative region
 - Accessibility details such as ramps, lifts, accessible toilets, or parking must only be shown when the source or a clearly attributed manual record supports the claim.
 - Do not turn every aggregate facility statistic into individual facility records.
 
-### 6.6 Development projects (`/projects` and `/projects/[id]`)
+### 6.6 APBD records (`/apbd` and `/apbd/[id]`)
 
-Purpose: surface project information that can be traced to an appropriate source or clearly attributed Admin entry.
+Purpose: publish source-backed regional budget data without turning aggregate rows into individual development projects or calculated totals.
 
-Potential fields include project name, responsible agency, location(s), planned dates, status, source, budget, realization, and progress. Optional fields remain absent when not available; their values must not be fabricated.
+The source row has exactly eight data columns: `periode_data`, `tanggal`, `kode_opd`, `nama_opd`, `akun_jenis`, `nama_akun`, `anggaran`, and `realisasi`. Keep `anggaran` and `realisasi` as exact decimal values. Do not sum, group, or infer budget totals for the public dashboard; the dashboard may count published records and filter by `periode_data`.
 
-A project can cover more than one region. In the conceptual data model, represent this relation through a project-version-to-region join table where needed. Separate aggregate development indicators from individual project records.
+Admins may enter rows manually or import CSV/XLSX. Imports retain the original file and source values, create drafts, report invalid rows and duplicate candidates, and never overwrite a matching row. The source fingerprint is non-unique and is not a business key. Corrections to a published row create a draft revision; the prior row remains public until the correction is validated and published.
 
 ### 6.7 Feedback (`/feedback` or equivalent account area)
 
@@ -171,7 +171,7 @@ Purpose: allow signed-in citizens to send feedback and follow the recorded handl
 
 Citizen flow:
 1. Visitor chooses to submit feedback and is asked to sign in or register.
-2. Citizen writes a subject and message and may attach the feedback to at most one supported target: general, a region, a facility, a project, or a dataset.
+2. Citizen writes a subject and message and may attach the feedback to at most one supported target: general, a region, a facility, an APBD row, or a dataset.
 3. System creates a feedback record with `submitted` status.
 4. Citizen can later see its status, status history, and Admin responses.
 
@@ -225,7 +225,7 @@ Provide a practical administrative overview, such as counts of drafts awaiting v
 Admin-facing modules:
 - Regions
 - Public facilities
-- Development projects
+- APBD records and imports
 - Dataset catalog and imports
 - Validation/publication
 - Feedback
@@ -236,18 +236,18 @@ Each management view should provide appropriate search/filter, row actions, clea
 
 ### 7.3 Manual entry and import
 
-Facilities and projects can be entered manually or imported. Regions and general datasets may also be manually maintained/imported as their source structure requires.
+Facilities and APBD rows can be entered manually or imported. Regions and general datasets may also be manually maintained/imported as their source structure requires.
 
 Import flow:
 1. Admin selects the import target and file/source.
 2. System saves source metadata and a traceable import job.
-3. System previews data and maps columns when necessary.
-4. System validates required fields, types, parent-region/category references, duplicate candidates, and source details.
+3. APBD import reads normalized headers matching the eight source columns; the current API does not provide a preview or manual mapping step.
+4. System validates required fields and types, identifies duplicate candidates, and preserves source details.
 5. System retains original file/source values and identifies accepted/rejected rows with readable error reasons.
 6. Valid candidates become a draft version, not public data.
 7. Admin validates and publishes explicitly.
 
-On a repeat import, compare stable external identifiers or a deliberate matching strategy. Never blindly insert every imported row as a new business entity.
+On an APBD repeat import, use the non-unique fingerprint only to identify duplicate candidates. Report and skip matches without overwriting; do not infer a natural key from the eight source columns.
 
 ### 7.4 Corrections and publication
 
@@ -268,7 +268,7 @@ Record important operations such as creation, correction, import, publication, w
 1. Opens TeraPublic without an account.
 2. Opens monitoring or dataset catalog.
 3. Filters by topic, region, or period when supported.
-4. Opens a dataset/facility/project detail.
+4. Opens a dataset/facility/APBD record detail.
 5. Checks source, period, last update, units, and caveats.
 
 Success: visitor can understand what is shown and where it came from without signing in.
@@ -277,7 +277,7 @@ Success: visitor can understand what is shown and where it came from without sig
 1. Admin signs in.
 2. Opens the relevant management module.
 3. Imports a file or enters a record manually.
-4. Previews and validates the data.
+4. For APBD, validates imported rows directly; the current API has no preview or manual mapping step.
 5. Reviews duplicate/invalid-row reports.
 6. Saves draft and validates it.
 7. Publishes the version.
@@ -311,7 +311,7 @@ Success: the answer is traceable to approved information, and unsupported claims
 - Explore datasets
 - Regions (if useful for the selected MVP data)
 - Facilities (if supported by the selected datasets)
-- Development projects (if supported by appropriate sources)
+- APBD rows (when the source dataset is available)
 - Login/Register
 
 Authenticated citizen area:
@@ -322,7 +322,7 @@ Authenticated citizen area:
 - Overview
 - Regions
 - Facilities
-- Development projects
+- APBD records and imports
 - Dataset catalog/imports
 - Drafts and validation/publication
 - Feedback management
@@ -337,7 +337,7 @@ Avoid exposing an empty navigation item for a feature that has not been implemen
 - Next.js public and Admin shells consistent with the design guide.
 - Laravel API, authentication/authorization, and PostgreSQL migrations.
 - Region master data.
-- Manual/import flows for selected facilities and development project data.
+- Manual/import flows for selected facility data and APBD rows with the eight source columns.
 - Dataset catalog, versioning, provenance, validation, and publication.
 - Public catalog and monitoring views driven by a small, audited set of DKI Jakarta datasets.
 - Account-based feedback and private feedback history.
@@ -358,7 +358,7 @@ A working MVP should satisfy the following:
 
 - A visitor can browse published public information without logging in.
 - A visitor cannot read draft/private records through the API.
-- Admin can create a region/facility/project manually or import supported data.
+- Admin can create a region/facility/APBD record manually or import supported data.
 - The import flow reports accepted and rejected rows and their reasons.
 - Imported source values and important changes remain traceable.
 - Admin can validate and publish a draft; only the published version is publicly visible.
@@ -371,7 +371,7 @@ A working MVP should satisfy the following:
 ## 12. Explicit non-goals unless approved
 
 - A platform that claims every dataset from every government agency is automatically synchronized.
-- A live project-tracking system if the source does not publish current project-level status.
+- Project tracking inferred from APBD rows, or calculated APBD totals not defined by the source contract.
 - Automatic crowdsourced public verification, public voting, or publicizing every feedback item.
 - A public chatbot available without login (current decision requires login).
 - ML predictions without audited data, defined targets, and evaluation.

@@ -4,7 +4,6 @@ namespace App\Models\Wilayah;
 
 use App\Models\Fasilitas\VersiFasilitas;
 use App\Models\Feedback\UmpanBalik;
-use App\Models\Proyek\CakupanWilayahProyek;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -52,11 +51,5 @@ class Wilayah extends Model
     public function umpanBalik(): HasMany
     {
         return $this->hasMany(UmpanBalik::class, 'region_id');
-    }
-
-    /** @return HasMany<CakupanWilayahProyek, $this> */
-    public function cakupanProyek(): HasMany
-    {
-        return $this->hasMany(CakupanWilayahProyek::class, 'region_id');
     }
 }

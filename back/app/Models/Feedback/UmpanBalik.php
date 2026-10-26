@@ -2,10 +2,10 @@
 
 namespace App\Models\Feedback;
 
+use App\Models\Apbd\Apbd;
 use App\Models\Dataset\Dataset;
 use App\Models\Fasilitas\Fasilitas;
 use App\Models\Pengguna;
-use App\Models\Proyek\Proyek;
 use App\Models\Wilayah\Wilayah;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'user_id', 'facility_id', 'project_id', 'region_id', 'dataset_id', 'subject', 'message', 'status', 'rejection_reason',
+    'user_id', 'facility_id', 'apbd_id', 'region_id', 'dataset_id', 'subject', 'message', 'status', 'rejection_reason',
 ])]
 class UmpanBalik extends Model
 {
@@ -34,10 +34,10 @@ class UmpanBalik extends Model
         return $this->belongsTo(Fasilitas::class, 'facility_id');
     }
 
-    /** @return BelongsTo<Proyek, $this> */
-    public function proyek(): BelongsTo
+    /** @return BelongsTo<Apbd, $this> */
+    public function apbd(): BelongsTo
     {
-        return $this->belongsTo(Proyek::class, 'project_id');
+        return $this->belongsTo(Apbd::class, 'apbd_id');
     }
 
     /** @return BelongsTo<Wilayah, $this> */
