@@ -15,6 +15,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(KategoriSeeder::class);
+
         // Pengguna::factory(10)->create();
 
         Pengguna::factory()->create([

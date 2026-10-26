@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Auth\AuthenticatedUserController;
 use App\Http\Controllers\Api\Dashboard\DashboardController;
 use App\Http\Controllers\Api\Dataset\DatasetController;
+use App\Http\Controllers\Api\Fasilitas\Admin\AdminFasilitasController;
 use App\Http\Controllers\Api\Fasilitas\FasilitasController;
 use App\Http\Controllers\Api\Feedback\FeedbackController;
 use App\Http\Controllers\Api\HealthController;
@@ -37,6 +38,21 @@ Route::name('api.')->group(function (): void {
         ->name('feedback.store');
 
     Route::prefix('admin')->name('admin.')->middleware(['auth:sanctum', 'can:admin'])->group(function (): void {
+        Route::get('facilities', [AdminFasilitasController::class, 'index'])->name('facilities.index');
+        Route::post('facilities', [AdminFasilitasController::class, 'store'])->name('facilities.store');
+        Route::get('facilities/{facility}', [AdminFasilitasController::class, 'show'])
+            ->whereUuid('facility')->name('facilities.show');
+        Route::put('facilities/{facility}', [AdminFasilitasController::class, 'update'])
+            ->whereUuid('facility')->name('facilities.update');
+        Route::patch('facilities/{facility}', [AdminFasilitasController::class, 'update'])
+            ->whereUuid('facility')->name('facilities.patch');
+        Route::post('facilities/{facility}/versions/{version}/validate', [AdminFasilitasController::class, 'validateVersion'])
+            ->whereUuid('facility')->whereUuid('version')->name('facilities.versions.validate');
+        Route::post('facilities/{facility}/versions/{version}/publish', [AdminFasilitasController::class, 'publish'])
+            ->whereUuid('facility')->whereUuid('version')->name('facilities.versions.publish');
+        Route::post('facilities/{facility}/archive', [AdminFasilitasController::class, 'archive'])
+            ->whereUuid('facility')->name('facilities.archive');
+
         Route::get('regions', [AdminWilayahController::class, 'index'])->name('regions.index');
         Route::post('regions', [AdminWilayahController::class, 'store'])->name('regions.store');
         Route::get('regions/{region}', [AdminWilayahController::class, 'show'])->whereUuid('region')->name('regions.show');

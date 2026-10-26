@@ -18,6 +18,8 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property string $id
+ * @property string $facility_id
+ * @property int $version_no
  * @property string $name
  * @property string $category_id
  * @property string $region_id
@@ -25,8 +27,18 @@ use Illuminate\Support\Carbon;
  * @property string|null $latitude
  * @property string|null $longitude
  * @property array<string, mixed>|null $attributes
+ * @property string|null $source_id
+ * @property string|null $import_job_id
+ * @property array<string, mixed>|null $source_original_data
  * @property PublicationStatus $publication_status
+ * @property string $created_by
+ * @property string|null $reviewed_by
  * @property Carbon|null $published_at
+ * @property-read Kategori|null $kategori
+ * @property-read Wilayah|null $wilayah
+ * @property-read SumberData|null $sumberData
+ * @property-read Pengguna|null $pembuat
+ * @property-read Pengguna|null $peninjau
  */
 #[Fillable([
     'version_no', 'name', 'category_id', 'region_id', 'address', 'latitude', 'longitude', 'attributes',
