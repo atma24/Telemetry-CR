@@ -13,7 +13,7 @@ class ProyekService
     {
         return Proyek::query()
             ->whereHas('versiTerpublikasi')
-            ->with('versiTerpublikasi')
+            ->with('versiTerpublikasi.wilayahCakupan.versiTerpublikasi')
             ->orderBy(VersiProyek::query()
                 ->select('name')
                 ->whereColumn('project_id', 'projects.id')
@@ -27,7 +27,7 @@ class ProyekService
         return Proyek::query()
             ->whereKey($projectId)
             ->whereHas('versiTerpublikasi')
-            ->with('versiTerpublikasi')
+            ->with('versiTerpublikasi.wilayahCakupan.versiTerpublikasi')
             ->firstOrFail();
     }
 }

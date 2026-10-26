@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Fasilitas\Admin\AdminFasilitasController;
 use App\Http\Controllers\Api\Fasilitas\FasilitasController;
 use App\Http\Controllers\Api\Feedback\FeedbackController;
 use App\Http\Controllers\Api\HealthController;
+use App\Http\Controllers\Api\Proyek\Admin\AdminProyekController;
 use App\Http\Controllers\Api\Proyek\ProyekController;
 use App\Http\Controllers\Api\Wilayah\Admin\AdminWilayahController;
 use App\Http\Controllers\Api\Wilayah\WilayahController;
@@ -52,6 +53,17 @@ Route::name('api.')->group(function (): void {
             ->whereUuid('facility')->whereUuid('version')->name('facilities.versions.publish');
         Route::post('facilities/{facility}/archive', [AdminFasilitasController::class, 'archive'])
             ->whereUuid('facility')->name('facilities.archive');
+
+        Route::get('projects', [AdminProyekController::class, 'index'])->name('projects.index');
+        Route::post('projects', [AdminProyekController::class, 'store'])->name('projects.store');
+        Route::get('projects/{project}', [AdminProyekController::class, 'show'])->whereUuid('project')->name('projects.show');
+        Route::put('projects/{project}', [AdminProyekController::class, 'update'])->whereUuid('project')->name('projects.update');
+        Route::patch('projects/{project}', [AdminProyekController::class, 'update'])->whereUuid('project')->name('projects.patch');
+        Route::post('projects/{project}/versions/{version}/validate', [AdminProyekController::class, 'validateVersion'])
+            ->whereUuid('project')->whereUuid('version')->name('projects.versions.validate');
+        Route::post('projects/{project}/versions/{version}/publish', [AdminProyekController::class, 'publish'])
+            ->whereUuid('project')->whereUuid('version')->name('projects.versions.publish');
+        Route::post('projects/{project}/archive', [AdminProyekController::class, 'archive'])->whereUuid('project')->name('projects.archive');
 
         Route::get('regions', [AdminWilayahController::class, 'index'])->name('regions.index');
         Route::post('regions', [AdminWilayahController::class, 'store'])->name('regions.store');

@@ -29,6 +29,11 @@ class ProyekResource extends JsonResource
             'project_status' => $versi?->project_status,
             'attributes' => $versi?->attributes,
             'published_at' => $versi?->published_at?->toDateTimeString(),
+            'regions' => $versi?->wilayahCakupan->map(fn ($wilayah): array => [
+                'id' => $wilayah->id,
+                'name' => $wilayah->versiTerpublikasi?->name,
+                'is_primary' => (bool) $wilayah->pivot->is_primary,
+            ])->values(),
         ];
     }
 }
