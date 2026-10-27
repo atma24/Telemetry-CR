@@ -20,6 +20,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\HasApiTokens;
 
 /**
  * @property string $id
@@ -42,7 +43,7 @@ use Illuminate\Support\Str;
 class Pengguna extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<PenggunaFactory> */
-    use HasFactory, HasUuids, Notifiable;
+    use HasApiTokens, HasFactory, HasUuids, Notifiable;
 
     protected $table = 'users';
 

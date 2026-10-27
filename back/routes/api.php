@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Apbd\AdminApbdController;
 use App\Http\Controllers\Api\Apbd\ApbdController;
+use App\Http\Controllers\Api\Auth\AdminTokenController;
 use App\Http\Controllers\Api\Auth\AuthenticatedUserController;
 use App\Http\Controllers\Api\Dashboard\DashboardController;
 use App\Http\Controllers\Api\Dataset\DatasetController;
@@ -18,6 +19,11 @@ Route::name('api.')->group(function (): void {
 
     Route::middleware('auth:sanctum')->get('user', AuthenticatedUserController::class)
         ->name('user');
+
+    Route::post('admin/login', [AdminTokenController::class, 'store'])
+        ->middleware('throttle:5,1')->name('admin.login');
+    Route::delete('admin/token', [AdminTokenController::class, 'destroy'])
+        ->middleware('auth:sanctum')->name('admin.token.destroy');
 
     Route::get('regions', [WilayahController::class, 'index'])->name('regions.index');
     Route::get('regions/{region}', [WilayahController::class, 'show'])
@@ -57,6 +63,8 @@ Route::name('api.')->group(function (): void {
         Route::get('apbd', [AdminApbdController::class, 'index'])->name('apbd.index');
         Route::post('apbd', [AdminApbdController::class, 'store'])->name('apbd.store');
         Route::post('apbd/import', [AdminApbdController::class, 'import'])->middleware('throttle:10,1')->name('apbd.import');
+        Route::get('apbd/imports/{importJob}', [AdminApbdController::class, 'showImport'])
+            ->whereUuid('importJob')->name('apbd.imports.show');
         Route::get('apbd/imports/{importJob}/errors', [AdminApbdController::class, 'downloadErrors'])
             ->whereUuid('importJob')->name('apbd.imports.errors');
         Route::get('apbd/{apbd}', [AdminApbdController::class, 'show'])->whereUuid('apbd')->name('apbd.show');

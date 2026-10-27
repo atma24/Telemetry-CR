@@ -272,3 +272,13 @@ test('the current schema removes project tables without rewriting their migratio
         ->and(Schema::hasTable('project_versions'))->toBeFalse()
         ->and(Schema::hasTable('project_version_regions'))->toBeFalse();
 });
+
+test('personal access tokens store UUID morph IDs for user accounts', function () {
+    expect(Schema::hasTable('personal_access_tokens'))->toBeTrue()
+        ->and(Schema::getColumnType('personal_access_tokens', 'tokenable_id'))->toBe('uuid');
+});
+
+test('import jobs store row progress and private terminal failure reasons', function () {
+    expect(Schema::hasColumn('import_jobs', 'processed_rows'))->toBeTrue()
+        ->and(Schema::hasColumn('import_jobs', 'failure_reason'))->toBeTrue();
+});

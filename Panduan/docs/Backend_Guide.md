@@ -109,12 +109,12 @@ The exact namespace/folder can be made more domain-oriented if it stays autoload
 ### Datasets and import jobs
 - Dataset catalog and version records.
 - Upload and safely store CSV/XLSX files outside executable/public paths.
-- APBD currently imports directly using normalized header names for its eight columns; it does not expose a preview or manual field-mapping endpoint.
-- APBD imports currently run synchronously with a 20 MB upload limit; move larger workloads to a queue before increasing that limit.
+- APBD imports use normalized header names for the eight columns; there is no preview or manual field-mapping endpoint.
+- `POST /api/admin/apbd/import` stores the original file privately and queues row processing in batches of 500. It returns `202 Accepted` with the import job ID and a status URL; `GET /api/admin/apbd/imports/{id}` provides row counts and progress. The HTTP upload limit remains 20 MB.
 - Validate row schema, types, required fields, region/category references and duplicates.
 - Record accepted/rejected row counts and row-level errors.
-- Use queued jobs for large imports; do not make long imports synchronous by default.
-- Make import retries idempotent or require explicit conflict handling so retries do not create duplicates.
+- Run a database queue worker for imports: `php artisan queue:work database --timeout=3600 --tries=3`. Keep `DB_QUEUE_RETRY_AFTER` greater than the worker timeout (the default is 3660 seconds).
+- Import retries are idempotent: duplicate candidates are reported and skipped, while rows already written by the same import job are not inserted again.
 
 ### Publication/versioning
 - State flow: `draft` -> `validating` -> `published`; prior version may become `superseded`; withdrawn records may be `archived`/unpublished while retained for audit.
@@ -133,6 +133,8 @@ The exact namespace/folder can be made more domain-oriented if it stays autoload
 ## 5. Authentication integration with Next.js
 
 Preferred default for a first-party web app: **Laravel Sanctum SPA authentication using secure cookie/session auth**, not a custom JWT implementation by default. Official Sanctum guidance says the SPA and API should share a top-level domain, though they can use different subdomains. Configure stateful domains, credentials, CSRF initialization, and CORS accordingly.
+
+For direct API clients such as Postman, active Admins can request a Sanctum personal access token with `POST /api/admin/login` using their email and password. The plaintext token is returned once, expires after eight hours, and can be revoked by its holder with `DELETE /api/admin/token`. Send it as `Authorization: Bearer <token>`. Sanctum stores only the token hash. This does not replace cookie/session authentication for the first-party SPA.
 
 Example production domain arrangement:
 - `app.example.id` — Next.js.
@@ -157,9 +159,9 @@ Install/configure Sanctum using the official instructions for the chosen Laravel
 Use the unversioned external API (`/api/...`) and document it using Laravel's generated OpenAPI tooling or an approved API specification. Keep response shapes and error formats consistent. Example endpoint families (indicative, not a full locked endpoint list):
 
 - Public: `GET /api/dashboard`, `GET /api/datasets`, `GET /api/regions`, `GET /api/facilities`, `GET /api/apbd`.
-- Auth: register/login/logout/current user according to Sanctum SPA flow.
+- Auth: register/login/logout/current user according to Sanctum SPA flow; `POST /api/admin/login` issues a short-lived Admin bearer token and `DELETE /api/admin/token` revokes the current token.
 - Admin: CRUD and import/validation/publication endpoints for reference/domain data.
-- APBD Admin: `POST /api/admin/apbd`, `POST /api/admin/apbd/import`, `GET /api/admin/apbd/imports/{id}/errors`, and record validation/publication routes.
+- APBD Admin: `POST /api/admin/apbd`, `POST /api/admin/apbd/import`, `GET /api/admin/apbd/imports/{id}` for queue status/progress, `GET /api/admin/apbd/imports/{id}/errors` for the private row-error report, and record validation/publication routes.
 - Feedback: authenticated citizen create/list-own/show-own; Admin list/review/respond/update status.
 - RAG: Laravel validates user/session and forwards a scoped request to the private Python AI service, then stores/returns the chat result and citations according to the documented ownership strategy.
 - ML: only add inference endpoints after an ML use case is approved.

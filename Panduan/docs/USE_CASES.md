@@ -19,7 +19,7 @@
 | Admin | Manage facilities | Admin | Draft/versioned facility records |
 | Admin | Manage APBD records | Admin | Draft rows from the eight source columns; CSV/XLSX import and revision workflow |
 | Admin | Manage datasets | Admin | Catalog metadata and versions |
-| Admin | Import APBD data | Admin | Direct CSV/XLSX import, validation results and Admin-only error report |
+| Admin | Import APBD data | Admin | Queued CSV/XLSX import, progress, validation results and Admin-only error report |
 | Admin | Validate/publish data | Admin | Approved version becomes public |
 | Admin | Correct/withdraw published data | Admin | History retained; current public version changes only according to publication rules |
 | Admin | Manage feedback | Admin | Status changes/responses recorded; rejected feedback must have a reason |
@@ -27,12 +27,12 @@
 | Admin | View audit logs | Admin | Trace of important administrative actions |
 
 ## Import and publication workflow
-1. Admin selects a target type and uploads CSV/XLSX (initial file formats) or enters a record manually.
-2. For APBD, system reads normalized headers matching the eight source columns; this API does not provide a preview or manual mapping step.
-3. System validates schema, required fields, types, region/category references, and duplicate candidates.
-4. System records rejected rows and reasons.
-5. Valid APBD rows are saved as drafts with source/import provenance.
-6. Admin validates and publishes the version.
+1. Admin uploads CSV/XLSX (up to 20 MB); the original file is retained in private storage.
+2. For APBD, the API returns an import job ID immediately; a queue worker reads normalized headers matching the eight source columns, with no preview or manual mapping step.
+3. Admin polls the job status endpoint for rows processed and accepted/rejected counts.
+4. The worker validates rows in bounded batches, records rejected rows and reasons, and saves valid APBD rows as drafts with source/import provenance.
+5. Admin retrieves the private error report when rows were rejected.
+6. Admin validates and publishes the drafts.
 7. Public APIs serve published versions only.
 
 ## Correct an already published record

@@ -7,6 +7,7 @@ use App\Http\Requests\Apbd\ImportApbdRequest;
 use App\Http\Requests\Apbd\IndexAdminApbdRequest;
 use App\Http\Requests\Apbd\StoreApbdRequest;
 use App\Http\Requests\Apbd\UpdateApbdRequest;
+use App\Http\Resources\Apbd\AdminApbdImportResource;
 use App\Http\Resources\Apbd\AdminApbdResource;
 use App\Models\PekerjaanImpor;
 use App\Services\Apbd\AdminApbdService;
@@ -34,13 +35,23 @@ class AdminApbdController extends Controller
 
     public function import(ImportApbdRequest $request, ApbdImportService $service): JsonResponse
     {
-        return response()->json([
-            'data' => $service->import(
-                $request->file('file'),
-                $request->user(),
-                $request->filled('source_id') ? $request->string('source_id')->toString() : null,
-            ),
-        ], 201);
+        $importJob = $service->queueImport(
+            $request->file('file'),
+            $request->user(),
+            $request->filled('source_id') ? $request->string('source_id')->toString() : null,
+        );
+
+        return (new AdminApbdImportResource($importJob))
+            ->response()
+            ->setStatusCode(202)
+            ->header('Location', route('api.admin.apbd.imports.show', ['importJob' => $importJob->id]));
+    }
+
+    public function showImport(PekerjaanImpor $importJob): AdminApbdImportResource
+    {
+        abort_unless($importJob->target_type === 'apbd', 404);
+
+        return new AdminApbdImportResource($importJob);
     }
 
     public function show(string $apbd, ApbdService $apbdService): AdminApbdResource

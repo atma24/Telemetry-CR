@@ -13,8 +13,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'target_type', 'source_id', 'original_filename', 'file_path', 'error_report_path', 'status', 'total_rows',
-    'accepted_rows', 'rejected_rows', 'initiated_by', 'finished_at',
+    'target_type', 'source_id', 'original_filename', 'file_path', 'error_report_path', 'failure_reason', 'status',
+    'total_rows', 'processed_rows', 'accepted_rows', 'rejected_rows', 'initiated_by', 'finished_at',
 ])]
 class PekerjaanImpor extends Model
 {
@@ -27,6 +27,7 @@ class PekerjaanImpor extends Model
     {
         return [
             'total_rows' => 'integer',
+            'processed_rows' => 'integer',
             'accepted_rows' => 'integer',
             'rejected_rows' => 'integer',
             'finished_at' => 'datetime',

@@ -1,12 +1,17 @@
 <?php
 
+use App\Jobs\Apbd\ProcessApbdImport;
 use App\Models\Apbd\Apbd;
 use App\Models\PekerjaanImpor;
 use App\Models\Pengguna;
 use App\Services\Apbd\ApbdDataNormalizer;
+use App\Services\Apbd\ApbdImportService;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\PersonalAccessToken;
 
 /** @return array<string, mixed> */
 function apbdApiPayload(array $overrides = []): array
@@ -140,6 +145,51 @@ it('protects APBD administration endpoints from guests and citizens', function (
     $this->actingAs(Pengguna::factory()->create())
         ->getJson('/api/admin/apbd')
         ->assertForbidden();
+});
+
+it('issues expiring bearer tokens to active admins and allows revoking the current token', function () {
+    $admin = Pengguna::factory()->admin()->create();
+    $response = $this->postJson('/api/admin/login', [
+        'email' => $admin->email,
+        'password' => 'password',
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.token_type', 'Bearer')
+        ->assertJsonStructure(['data' => ['access_token', 'expires_at']]);
+    $token = $response->json('data.access_token');
+    $storedToken = PersonalAccessToken::query()->where('tokenable_id', $admin->id)->firstOrFail();
+
+    expect($storedToken->expires_at)->not->toBeNull();
+
+    $this->withToken($token)->getJson('/api/admin/apbd')->assertOk();
+    $this->withToken($token)->deleteJson('/api/admin/token')->assertNoContent();
+    $this->assertDatabaseMissing('personal_access_tokens', ['id' => $storedToken->id]);
+
+    Auth::forgetGuards();
+    $this->withToken($token)->getJson('/api/admin/apbd')->assertUnauthorized();
+});
+
+it('does not issue admin bearer tokens for invalid or non-admin credentials', function () {
+    $admin = Pengguna::factory()->admin()->create();
+    $inactiveAdmin = Pengguna::factory()->admin()->create(['account_status' => 'inactive']);
+    $citizen = Pengguna::factory()->create();
+
+    $this->postJson('/api/admin/login', [
+        'email' => $admin->email,
+        'password' => 'incorrect-password',
+    ])->assertUnauthorized();
+
+    $this->postJson('/api/admin/login', [
+        'email' => $citizen->email,
+        'password' => 'password',
+    ])->assertUnauthorized();
+
+    $this->postJson('/api/admin/login', [
+        'email' => $inactiveAdmin->email,
+        'password' => 'password',
+    ])->assertUnauthorized();
+
+    $this->assertDatabaseCount('personal_access_tokens', 0);
 });
 
 it('creates drafts and publishes only after validation without exposing internal fields publicly', function () {
@@ -282,6 +332,7 @@ it('filters published APBD records and dashboard counts by data period', functio
 
 it('imports CSV rows as drafts, skips duplicate candidates, and keeps a private error report', function () {
     Storage::fake('local');
+    Queue::fake();
     $admin = Pengguna::factory()->admin()->create();
     $duplicateData = [
         'periode_data' => '202403',
@@ -304,17 +355,33 @@ it('imports CSV rows as drafts, skips duplicate candidates, and keeps a private 
         .'202413,2024-04-30,003.01,Dinas Salah,5,Belanja Gedung,=2+2,100.00'."\n";
     $upload = UploadedFile::fake()->createWithContent('apbd.csv', $csv);
 
-    $response = $this->actingAs($admin)
+    $token = $this->postJson('/api/admin/login', [
+        'email' => $admin->email,
+        'password' => 'password',
+    ])
+        ->assertCreated()
+        ->json('data.access_token');
+
+    $response = $this->withToken($token)
         ->withHeader('Accept', 'application/json')
         ->post('/api/admin/apbd/import', ['file' => $upload])
-        ->assertCreated()
-        ->assertJsonPath('data.status', 'completed_with_errors')
-        ->assertJsonPath('data.total_rows', 3)
-        ->assertJsonPath('data.accepted_rows', 1)
-        ->assertJsonPath('data.rejected_rows', 2);
+        ->assertAccepted()
+        ->assertJsonPath('data.status', 'uploaded')
+        ->assertJsonPath('data.processed_rows', 0)
+        ->assertJsonPath('data.progress_percentage', null)
+        ->assertHeader('Location');
 
-    $jobId = $response->json('data.import_job_id');
+    $jobId = $response->json('data.id');
     $job = PekerjaanImpor::query()->findOrFail($jobId);
+    Queue::assertPushed(ProcessApbdImport::class, fn (ProcessApbdImport $queuedJob): bool => $queuedJob->importJobId === $jobId);
+    $this->assertDatabaseCount('apbd', 1);
+    $this->withToken($token)->getJson("/api/admin/apbd/imports/{$jobId}")
+        ->assertOk()
+        ->assertJsonPath('data.status', 'uploaded');
+
+    (new ProcessApbdImport($jobId))->handle(app(ApbdImportService::class));
+
+    $job->refresh();
     $this->assertDatabaseCount('apbd', 2);
     $this->assertDatabaseHas('apbd', [
         'import_job_id' => $jobId,
@@ -323,27 +390,96 @@ it('imports CSV rows as drafts, skips duplicate candidates, and keeps a private 
         'realisasi' => '1500.25',
     ]);
     expect($job->original_filename)->toBe('apbd.csv');
+    expect($job->status)->toBe('completed_with_errors');
+    expect($job->processed_rows)->toBe(3);
+    expect($job->accepted_rows)->toBe(1);
+    expect($job->rejected_rows)->toBe(2);
     Storage::disk('local')->assertExists($job->file_path);
     Storage::disk('local')->assertExists($job->error_report_path);
     expect(Storage::disk('local')->get($job->error_report_path))->toContain("'=2+2");
 
-    $this->getJson("/api/admin/apbd/imports/{$jobId}/errors")->assertOk();
-    $this->actingAs(Pengguna::factory()->create())
-        ->getJson("/api/admin/apbd/imports/{$jobId}/errors")
+    $this->withToken($token)->getJson("/api/admin/apbd/imports/{$jobId}")
+        ->assertOk()
+        ->assertJsonPath('data.status', 'completed_with_errors')
+        ->assertJsonPath('data.total_rows', 3)
+        ->assertJsonPath('data.processed_rows', 3)
+        ->assertJsonPath('data.accepted_rows', 1)
+        ->assertJsonPath('data.rejected_rows', 2)
+        ->assertJsonPath('data.progress_percentage', 100)
+        ->assertJsonPath('data.error_report_url', route('api.admin.apbd.imports.errors', ['importJob' => $jobId]));
+
+    $this->withToken($token)->getJson("/api/admin/apbd/imports/{$jobId}/errors")->assertOk();
+    Auth::forgetGuards();
+    $this->withoutToken()->getJson("/api/admin/apbd/imports/{$jobId}")->assertUnauthorized();
+    $citizen = Pengguna::factory()->create();
+    $this->actingAs($citizen)
+        ->getJson("/api/admin/apbd/imports/{$jobId}")
         ->assertForbidden();
+    $this->getJson("/api/admin/apbd/imports/{$jobId}/errors")
+        ->assertForbidden();
+});
+
+it('counts rows already persisted by the same import as accepted when a worker retries', function () {
+    Storage::fake('local');
+    Queue::fake();
+    $admin = Pengguna::factory()->admin()->create();
+    $data = [
+        'periode_data' => '202403',
+        'tanggal' => '2024-03-31',
+        'kode_opd' => '001.02',
+        'nama_opd' => 'Dinas Pekerjaan Umum',
+        'akun_jenis' => '5',
+        'nama_akun' => 'Belanja Modal Jalan',
+        'anggaran' => '1250000000.00',
+        'realisasi' => '985000000.00',
+    ];
+    $csv = implode(',', array_keys($data))."\n".implode(',', array_values($data))."\n";
+    $upload = UploadedFile::fake()->createWithContent('retry.csv', $csv);
+
+    $response = $this->actingAs($admin)
+        ->withHeader('Accept', 'application/json')
+        ->post('/api/admin/apbd/import', ['file' => $upload])
+        ->assertAccepted();
+    $jobId = $response->json('data.id');
+    Apbd::factory()->create([
+        ...$data,
+        'import_job_id' => $jobId,
+        'source_fingerprint' => app(ApbdDataNormalizer::class)->fingerprint($data),
+    ]);
+
+    (new ProcessApbdImport($jobId))->handle(app(ApbdImportService::class));
+
+    $this->assertDatabaseCount('apbd', 1);
+    $this->assertDatabaseHas('import_jobs', [
+        'id' => $jobId,
+        'status' => 'completed',
+        'processed_rows' => 1,
+        'accepted_rows' => 1,
+        'rejected_rows' => 0,
+    ]);
 });
 
 it('imports a valid XLSX worksheet without adding spreadsheet dependencies', function () {
     Storage::fake('local');
+    Queue::fake();
     $admin = Pengguna::factory()->admin()->create();
     $data = apbdApiPayload(['kode_opd' => '00102']);
     $upload = makeApbdXlsxUpload($data);
 
     try {
-        $this->actingAs($admin)
+        $response = $this->actingAs($admin)
             ->withHeader('Accept', 'application/json')
             ->post('/api/admin/apbd/import', ['file' => $upload['file']])
-            ->assertCreated()
+            ->assertAccepted()
+            ->assertJsonPath('data.status', 'uploaded');
+        $jobId = $response->json('data.id');
+        Queue::assertPushed(ProcessApbdImport::class, fn (ProcessApbdImport $queuedJob): bool => $queuedJob->importJobId === $jobId);
+
+        (new ProcessApbdImport($jobId))->handle(app(ApbdImportService::class));
+
+        $this->withHeader('Accept', 'application/json')
+            ->getJson("/api/admin/apbd/imports/{$jobId}")
+            ->assertOk()
             ->assertJsonPath('data.status', 'completed')
             ->assertJsonPath('data.accepted_rows', 1)
             ->assertJsonPath('data.rejected_rows', 0);
@@ -359,6 +495,28 @@ it('imports a valid XLSX worksheet without adding spreadsheet dependencies', fun
         'anggaran' => '1250000000.00',
         'publication_status' => 'draft',
     ]);
+});
+
+it('marks an import failed when its queued source file is invalid', function () {
+    Storage::fake('local');
+    Queue::fake();
+    $admin = Pengguna::factory()->admin()->create();
+    $upload = UploadedFile::fake()->createWithContent('invalid.csv', "wrong,headers\n1,2\n");
+
+    $response = $this->actingAs($admin)
+        ->withHeader('Accept', 'application/json')
+        ->post('/api/admin/apbd/import', ['file' => $upload])
+        ->assertAccepted();
+    $jobId = $response->json('data.id');
+
+    (new ProcessApbdImport($jobId))->handle(app(ApbdImportService::class));
+
+    $this->getJson("/api/admin/apbd/imports/{$jobId}")
+        ->assertOk()
+        ->assertJsonPath('data.status', 'failed')
+        ->assertJsonPath('data.progress_percentage', null)
+        ->assertJsonPath('data.failure_reason', 'Missing required columns: periode_data, tanggal, kode_opd, nama_opd, akun_jenis, nama_akun, anggaran, realisasi.');
+    $this->assertDatabaseCount('apbd', 0);
 });
 
 it('archives published records on deletion and removes only an unpublished draft', function () {

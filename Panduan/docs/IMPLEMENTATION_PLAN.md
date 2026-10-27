@@ -22,6 +22,7 @@ Work one phase at a time. Do not scaffold every feature in one task. The existin
 ## Phase 3 — Identity and access
 - Implement citizen registration/login/logout/current-user flow and server-side sessions.
 - Configure Sanctum SPA cookie/CSRF/CORS/stateful-domain settings for Next.js.
+- Support short-lived Sanctum bearer tokens for active Admins using direct API clients; allow the current token to be revoked.
 - Provision the single Admin role securely; do not enable public Admin registration.
 - Test public, citizen-owned, and Admin-protected endpoints.
 
@@ -32,7 +33,7 @@ Work one phase at a time. Do not scaffold every feature in one task. The existin
 
 ## Phase 5 — Facilities, APBD, and datasets
 - Implement the APBD eight-column data model, provenance, correction, and publication workflow.
-- Implement source registry, import jobs, private file storage, and APBD direct import using normalized headers, validation, row errors, and duplicate-candidate reporting; this API has no preview or manual mapping step.
+- Implement source registry, import jobs, private file storage, and queued APBD imports using normalized headers, batch progress, validation, row errors, and duplicate-candidate reporting; this API has no preview or manual mapping step. Keep the HTTP upload limit at 20 MB.
 - Implement draft, publication, correction, withdrawal, and history semantics.
 - Use queues for imports that are too large/slow for a normal request.
 

@@ -1,6 +1,6 @@
 {
   "spec_name": "TeraPublic Conceptual Database Schema",
-  "spec_version": "1.2-apbd",
+  "spec_version": "1.4-apbd-queued-imports",
   "status": "apbd-module",
   "database": "PostgreSQL",
   "notes": [
@@ -9,6 +9,7 @@
     "APBD records use the eight source dataset columns plus publication and provenance fields.",
     "The source fingerprint is indexed but non-unique; it reports duplicate candidates and never defines an APBD natural key.",
     "Project migrations remain historical; the forward-only APBD migration removes project tables and detaches legacy project feedback targets.",
+    "Sanctum personal access tokens use UUID morph IDs for users; Admin API tokens are returned once and have a short lifetime.",
     "Use one Admin role; citizen access rules are defined in docs/PROJECT_SPEC.md.",
     "ML use case and model are intentionally undecided pending dataset audit.",
     "Python AI service must not mutate Laravel-owned tables directly unless table ownership and service contract are explicitly documented."
@@ -125,6 +126,25 @@
       ],
       "constraints": [
         "Use Laravel-compatible session storage schema; align user_id with UUID user primary key."
+      ]
+    },
+    {
+      "name": "personal_access_tokens",
+      "purpose": "Hashed Sanctum credentials for direct API clients",
+      "fields": [
+        { "name": "id", "type": "bigint", "pk": true },
+        { "name": "tokenable_type", "type": "varchar", "required": true },
+        { "name": "tokenable_id", "type": "uuid", "required": true },
+        { "name": "name", "type": "text", "required": true },
+        { "name": "token", "type": "varchar(64)", "required": true, "unique": true },
+        { "name": "abilities", "type": "text", "nullable": true },
+        { "name": "last_used_at", "type": "timestamp", "nullable": true },
+        { "name": "expires_at", "type": "timestamp", "nullable": true, "indexed": true },
+        { "name": "created_at", "type": "timestamp", "nullable": true },
+        { "name": "updated_at", "type": "timestamp", "nullable": true }
+      ],
+      "constraints": [
+        "tokenable_type/tokenable_id is indexed as a polymorphic owner reference; current user IDs are UUIDs"
       ]
     },
     {
@@ -621,7 +641,7 @@
     },
     {
       "name": "import_jobs",
-      "purpose": "Track file/source import and validation results",
+      "purpose": "Track queued file/source import progress and validation results",
       "fields": [
         {
           "name": "id",
@@ -660,6 +680,11 @@
           "nullable": true
         },
         {
+          "name": "processed_rows",
+          "type": "integer",
+          "required": true
+        },
+        {
           "name": "accepted_rows",
           "type": "integer",
           "nullable": true
@@ -675,6 +700,11 @@
           "nullable": true
         },
         {
+          "name": "failure_reason",
+          "type": "text",
+          "nullable": true
+        },
+        {
           "name": "initiated_by",
           "type": "uuid",
           "fk": "users.id",
@@ -686,10 +716,19 @@
           "required": true
         },
         {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "required": true
+        },
+        {
           "name": "finished_at",
           "type": "timestamptz",
           "nullable": true
         }
+      ],
+      "constraints": [
+        "processed_rows starts at zero and advances in bounded worker batches",
+        "failure_reason is private to Admin status responses"
       ]
     },
     {
@@ -1163,6 +1202,13 @@
       "description": "Laravel database-backed sessions for authenticated users"
     },
     {
+      "from": "users",
+      "to": "personal_access_tokens",
+      "cardinality": "1:N",
+      "via": "tokenable_type/tokenable_id",
+      "description": "Users own hashed Sanctum personal access tokens"
+    },
+    {
       "from": "apbd",
       "to": "feedbacks",
       "cardinality": "1:N optional",
@@ -1199,6 +1245,7 @@
     "Use-case-specific ML tables are deferred until the ML objective is selected.",
     "Laravel REST API owns operational records, authorization, imports, publication, and audit behavior.",
     "First-party Next.js SPA uses Laravel Sanctum cookie/session authentication when frontend and API share a top-level domain; configure CSRF, stateful domains, CORS, and credentials.",
+    "Active Admins may issue eight-hour Sanctum bearer tokens for direct API clients; token plaintext is returned once and the current token can be revoked.",
     "Python handles RAG and future ML; service-to-service contracts and table ownership must be documented.",
     "A feedback item may be general or reference at most one target among facility, APBD record, region, and dataset.",
     "Legacy feedback targets that pointed to removed project rows are retained as general feedback; they are not guessed into APBD references."

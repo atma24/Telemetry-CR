@@ -18,6 +18,18 @@ erDiagram
         text payload
         int last_activity
     }
+    PERSONAL_ACCESS_TOKENS {
+        bigint id PK
+        string tokenable_type
+        uuid tokenable_id
+        text name
+        string token UK
+        text abilities
+        datetime last_used_at
+        datetime expires_at
+        datetime created_at
+        datetime updated_at
+    }
     REGIONS {
         uuid id PK
         datetime created_at
@@ -137,11 +149,14 @@ erDiagram
         string file_path
         string status
         int total_rows
+        int processed_rows
         int accepted_rows
         int rejected_rows
         text error_report_path
+        text failure_reason
         uuid initiated_by FK
         datetime created_at
+        datetime updated_at
         datetime finished_at
     }
     FEEDBACKS {
@@ -215,6 +230,7 @@ erDiagram
     }
 
     USERS o|--o{ SESSIONS : has_sessions
+    USERS ||--o{ PERSONAL_ACCESS_TOKENS : owns_api_tokens
     USERS o|--o{ REGION_VERSIONS : creates
     USERS o|--o{ REGION_VERSIONS : reviews
     REGIONS ||--|{ REGION_VERSIONS : has_versions

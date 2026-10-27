@@ -3,6 +3,7 @@
 namespace App\Services\Apbd;
 
 use App\Enums\Wilayah\PublicationStatus;
+use App\Jobs\Apbd\ProcessApbdImport;
 use App\Models\Apbd\Apbd;
 use App\Models\PekerjaanImpor;
 use App\Models\Pengguna;
@@ -13,13 +14,12 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
+use RuntimeException;
 use Throwable;
 
 class ApbdImportService
 {
     private const BATCH_SIZE = 500;
-
-    private const MAX_ERROR_EXAMPLES = 100;
 
     public function __construct(
         private readonly ApbdSpreadsheetReader $spreadsheetReader,
@@ -27,10 +27,7 @@ class ApbdImportService
         private readonly AuditLogService $auditLogService,
     ) {}
 
-    /**
-     * @return array{import_job_id: string, original_filename: string, status: string, total_rows: int, accepted_rows: int, rejected_rows: int, rejection_reasons: array<string, int>, error_examples: array<int, array{row_number: int, errors: array<string, string>}>, error_report_url: string|null}
-     */
-    public function import(UploadedFile $file, Pengguna $actor, ?string $sourceId): array
+    public function queueImport(UploadedFile $file, Pengguna $actor, ?string $sourceId): PekerjaanImpor
     {
         $originalFilename = Str::limit(str_replace('\\', '/', $file->getClientOriginalName()), 255, '');
         $originalFilename = basename($originalFilename);
@@ -40,230 +37,405 @@ class ApbdImportService
             throw ValidationException::withMessages(['file' => 'The uploaded file could not be stored securely.']);
         }
 
-        $job = PekerjaanImpor::query()->create([
-            'target_type' => 'apbd',
-            'source_id' => $sourceId,
-            'original_filename' => $originalFilename,
-            'file_path' => $filePath,
-            'status' => 'processing',
-            'initiated_by' => $actor->id,
-        ]);
+        $job = null;
+        try {
+            $job = PekerjaanImpor::query()->create([
+                'target_type' => 'apbd',
+                'source_id' => $sourceId,
+                'original_filename' => $originalFilename,
+                'file_path' => $filePath,
+                'status' => 'uploaded',
+                'processed_rows' => 0,
+                'initiated_by' => $actor->id,
+            ]);
 
-        $reportStream = tmpfile();
+            ProcessApbdImport::dispatch($job->id);
 
-        if ($reportStream === false) {
-            $this->failJob($job, $actor, 'Unable to create a private validation report.');
+            return $job;
+        } catch (Throwable $exception) {
+            if ($job instanceof PekerjaanImpor) {
+                $this->markFailed($job->id, $exception);
+            } else {
+                Storage::disk('local')->delete($filePath);
+            }
 
-            throw ValidationException::withMessages(['file' => 'Unable to create a private validation report.']);
+            throw $exception;
+        }
+    }
+
+    public function process(string $importJobId): void
+    {
+        $job = PekerjaanImpor::query()
+            ->where('target_type', 'apbd')
+            ->findOrFail($importJobId);
+
+        if (in_array($job->status, ['completed', 'completed_with_errors', 'failed'], true)) {
+            return;
         }
 
-        fputcsv($reportStream, ['row_number', 'field', 'reason', 'source_value'], ',', '"', '');
+        $actor = $job->pembuat;
 
-        $batch = [];
-        $totalRows = 0;
-        $acceptedRows = 0;
-        $rejectedRows = 0;
-        $reasonCounts = [];
-        $examples = [];
-        $reportPath = null;
+        if ($actor === null) {
+            $this->markFailed($job->id, new InvalidArgumentException('The importing Admin account is unavailable.'));
+
+            return;
+        }
+
+        $job->forceFill([
+            'status' => 'processing',
+            'total_rows' => null,
+            'processed_rows' => 0,
+            'accepted_rows' => 0,
+            'rejected_rows' => 0,
+            'error_report_path' => null,
+            'failure_reason' => null,
+            'finished_at' => null,
+        ])->save();
+
+        $reportStream = null;
 
         try {
+            if ($job->file_path === null) {
+                throw new InvalidArgumentException('The stored APBD file is unavailable.');
+            }
+
+            $sourcePath = Storage::disk('local')->path($job->file_path);
+
+            if (! is_file($sourcePath)) {
+                throw new InvalidArgumentException('The stored APBD file is unavailable.');
+            }
+
+            $file = new UploadedFile(
+                $sourcePath,
+                $job->original_filename ?? basename($sourcePath),
+                null,
+                UPLOAD_ERR_OK,
+                true,
+            );
+            $totalRows = $this->countRows($file);
+            $job->forceFill(['total_rows' => $totalRows])->save();
+            $reportStream = tmpfile();
+
+            if ($reportStream === false) {
+                throw new RuntimeException('Unable to create a private validation report.');
+            }
+
+            if (fputcsv($reportStream, ['row_number', 'field', 'reason', 'source_value'], ',', '"', '') === false) {
+                throw new RuntimeException('Unable to write the private validation report.');
+            }
+
+            $batch = [];
+            $seenFingerprints = [];
+            $processedRows = 0;
+            $batchProcessedRows = 0;
+            $batchRejectedRows = 0;
+            $acceptedRows = 0;
+            $rejectedRows = 0;
+
             foreach ($this->spreadsheetReader->rows($file) as $sourceRow) {
-                $totalRows++;
+                $processedRows++;
+                $batchProcessedRows++;
 
                 try {
                     $normalized = $this->normalizer->normalizeRow($sourceRow['values']);
-                    $batch[] = [
-                        'row_number' => $sourceRow['row_number'],
-                        'attributes' => $normalized,
-                        'source_original_data' => $sourceRow['source_original_data'],
-                        'fingerprint' => $this->normalizer->fingerprint($normalized),
-                    ];
-                } catch (ValidationException $exception) {
-                    $errors = $this->validationMessages($exception);
-                    $this->recordRejectedRow($sourceRow['row_number'], $errors, $sourceRow['source_original_data'], $reportStream, $reasonCounts, $examples);
-                    $rejectedRows++;
-                }
+                    $fingerprint = $this->normalizer->fingerprint($normalized);
 
-                if (count($batch) >= self::BATCH_SIZE) {
-                    $duplicateRows = $this->persistBatch($batch, $job, $actor);
-                    $acceptedRows += count($batch) - count($duplicateRows);
-                    $rejectedRows += count($duplicateRows);
-
-                    foreach ($duplicateRows as $duplicate) {
+                    if (isset($seenFingerprints[$fingerprint])) {
                         $this->recordRejectedRow(
-                            $duplicate['row_number'],
-                            ['duplicate' => 'Potential duplicate of an existing APBD record; the source row was not imported.'],
-                            $duplicate['source_original_data'],
+                            $sourceRow['row_number'],
+                            ['duplicate' => 'Potential duplicate within this APBD import; the source row was not imported.'],
+                            $sourceRow['source_original_data'],
                             $reportStream,
-                            $reasonCounts,
-                            $examples,
                         );
+                        $batchRejectedRows++;
+                    } else {
+                        $seenFingerprints[$fingerprint] = true;
+                        $batch[] = [
+                            'row_number' => $sourceRow['row_number'],
+                            'attributes' => $normalized,
+                            'source_original_data' => $sourceRow['source_original_data'],
+                            'fingerprint' => $fingerprint,
+                        ];
                     }
-
-                    $batch = [];
-                }
-            }
-
-            if ($batch !== []) {
-                $duplicateRows = $this->persistBatch($batch, $job, $actor);
-                $acceptedRows += count($batch) - count($duplicateRows);
-                $rejectedRows += count($duplicateRows);
-
-                foreach ($duplicateRows as $duplicate) {
+                } catch (ValidationException $exception) {
                     $this->recordRejectedRow(
-                        $duplicate['row_number'],
-                        ['duplicate' => 'Potential duplicate of an existing APBD record; the source row was not imported.'],
-                        $duplicate['source_original_data'],
+                        $sourceRow['row_number'],
+                        $this->validationMessages($exception),
+                        $sourceRow['source_original_data'],
                         $reportStream,
-                        $reasonCounts,
-                        $examples,
                     );
+                    $batchRejectedRows++;
+                }
+
+                if ($batchProcessedRows >= self::BATCH_SIZE) {
+                    [$acceptedRows, $rejectedRows] = $this->persistProgressBatch(
+                        $batch,
+                        $job,
+                        $actor,
+                        $reportStream,
+                        $processedRows,
+                        $acceptedRows,
+                        $rejectedRows,
+                        $batchRejectedRows,
+                    );
+                    $batch = [];
+                    $batchProcessedRows = 0;
+                    $batchRejectedRows = 0;
                 }
             }
+
+            if ($batchProcessedRows > 0) {
+                [$acceptedRows, $rejectedRows] = $this->persistProgressBatch(
+                    $batch,
+                    $job,
+                    $actor,
+                    $reportStream,
+                    $processedRows,
+                    $acceptedRows,
+                    $rejectedRows,
+                    $batchRejectedRows,
+                );
+            }
+
+            $reportPath = null;
 
             if ($rejectedRows > 0) {
-                rewind($reportStream);
                 $reportPath = "imports/apbd/errors/{$job->id}.csv";
+                Storage::disk('local')->delete($reportPath);
+                rewind($reportStream);
 
                 if (! Storage::disk('local')->writeStream($reportPath, $reportStream)) {
-                    throw new InvalidArgumentException('The validation report could not be saved to private storage.');
+                    throw new RuntimeException('The validation report could not be saved to private storage.');
                 }
             }
 
             $status = $rejectedRows > 0 ? 'completed_with_errors' : 'completed';
-            $job->forceFill([
-                'status' => $status,
-                'total_rows' => $totalRows,
-                'accepted_rows' => $acceptedRows,
-                'rejected_rows' => $rejectedRows,
-                'error_report_path' => $reportPath,
-                'finished_at' => now(),
-            ])->save();
 
-            $this->auditLogService->record(
-                $actor,
-                'apbd.imported',
-                'apbd_import',
-                $job->id,
-                null,
-                [
+            DB::transaction(function () use ($job, $actor, $status, $totalRows, $acceptedRows, $rejectedRows, $reportPath): void {
+                $job->forceFill([
                     'status' => $status,
                     'total_rows' => $totalRows,
+                    'processed_rows' => $totalRows,
                     'accepted_rows' => $acceptedRows,
                     'rejected_rows' => $rejectedRows,
-                ],
-            );
+                    'error_report_path' => $reportPath,
+                    'failure_reason' => null,
+                    'finished_at' => now(),
+                ])->save();
 
-            return [
-                'import_job_id' => $job->id,
-                'original_filename' => $job->original_filename,
-                'status' => $status,
-                'total_rows' => $totalRows,
-                'accepted_rows' => $acceptedRows,
-                'rejected_rows' => $rejectedRows,
-                'rejection_reasons' => $reasonCounts,
-                'error_examples' => $examples,
-                'error_report_url' => $reportPath !== null
-                    ? route('api.admin.apbd.imports.errors', ['importJob' => $job->id])
-                    : null,
-            ];
+                $this->auditLogService->record(
+                    $actor,
+                    'apbd.imported',
+                    'apbd_import',
+                    $job->id,
+                    null,
+                    [
+                        'status' => $status,
+                        'total_rows' => $totalRows,
+                        'accepted_rows' => $acceptedRows,
+                        'rejected_rows' => $rejectedRows,
+                    ],
+                );
+            });
         } catch (InvalidArgumentException $exception) {
+            $this->markFailed($job->id, $exception);
+        } finally {
+            if (is_resource($reportStream)) {
+                fclose($reportStream);
+            }
+        }
+    }
+
+    public function markFailed(string $importJobId, ?Throwable $exception): void
+    {
+        $job = PekerjaanImpor::query()->find($importJobId);
+
+        if ($job === null || in_array($job->status, ['completed', 'completed_with_errors', 'failed'], true)) {
+            return;
+        }
+
+        $reason = Str::limit($exception?->getMessage() ?: 'The APBD import could not be completed.', 1000, '');
+        $actor = $job->pembuat;
+
+        DB::transaction(function () use ($job, $actor, $reason): void {
             $job->forceFill([
                 'status' => 'failed',
-                'total_rows' => $totalRows,
-                'accepted_rows' => $acceptedRows,
-                'rejected_rows' => $rejectedRows,
+                'failure_reason' => $reason,
                 'finished_at' => now(),
             ])->save();
-            $this->auditLogService->record($actor, 'apbd.import_failed', 'apbd_import', $job->id, null, ['reason' => $exception->getMessage()]);
 
-            throw ValidationException::withMessages(['file' => $exception->getMessage()]);
-        } catch (Throwable $exception) {
-            $this->failJob($job, $actor, $exception->getMessage(), $totalRows, $acceptedRows, $rejectedRows);
-
-            throw $exception;
-        } finally {
-            fclose($reportStream);
-        }
+            if ($actor !== null) {
+                $this->auditLogService->record(
+                    $actor,
+                    'apbd.import_failed',
+                    'apbd_import',
+                    $job->id,
+                    null,
+                    ['reason' => $reason],
+                );
+            }
+        });
     }
 
     /**
      * @param  array<int, array{row_number: int, attributes: array<string, string>, source_original_data: array<string, string>, fingerprint: string}>  $batch
      * @return array<int, array{row_number: int, source_original_data: array<string, string>}>
      */
-    private function persistBatch(array $batch, PekerjaanImpor $job, Pengguna $actor): array
-    {
+    private function persistBatch(
+        array $batch,
+        PekerjaanImpor $job,
+        Pengguna $actor,
+        int $processedRows,
+        int $acceptedRows,
+        int $rejectedRows,
+        int $batchRejectedRows,
+    ): array {
         $fingerprints = array_values(array_unique(array_column($batch, 'fingerprint')));
-        $existing = Apbd::query()->whereIn('source_fingerprint', $fingerprints)->pluck('source_fingerprint')->all();
-        $seen = array_fill_keys($existing, true);
-        $duplicates = [];
-        $rows = [];
-        $now = now();
 
-        foreach ($batch as $candidate) {
-            if (isset($seen[$candidate['fingerprint']])) {
-                $duplicates[] = [
-                    'row_number' => $candidate['row_number'],
-                    'source_original_data' => $candidate['source_original_data'],
-                ];
+        return DB::transaction(function () use (
+            $batch,
+            $fingerprints,
+            $job,
+            $actor,
+            $processedRows,
+            $acceptedRows,
+            $rejectedRows,
+            $batchRejectedRows,
+        ): array {
+            $existingByFingerprint = [];
 
-                continue;
+            if ($fingerprints !== []) {
+                foreach (Apbd::query()
+                    ->whereIn('source_fingerprint', $fingerprints)
+                    ->get(['source_fingerprint', 'import_job_id']) as $existingRecord) {
+                    $fingerprint = $existingRecord->source_fingerprint;
+                    $belongsToThisJob = $existingRecord->import_job_id === $job->id;
+                    $existingByFingerprint[$fingerprint] = ($existingByFingerprint[$fingerprint] ?? false) || $belongsToThisJob;
+                }
             }
 
-            $seen[$candidate['fingerprint']] = true;
-            $rows[] = [
-                'id' => (string) Str::uuid7(),
-                ...$candidate['attributes'],
-                'source_fingerprint' => $candidate['fingerprint'],
-                'source_id' => $job->source_id,
-                'import_job_id' => $job->id,
-                'source_original_data' => json_encode($candidate['source_original_data'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
-                'publication_status' => PublicationStatus::Draft->value,
-                'created_by' => $actor->id,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
+            $duplicates = [];
+            $rows = [];
+            $now = now();
+
+            foreach ($batch as $candidate) {
+                $fingerprint = $candidate['fingerprint'];
+
+                if (array_key_exists($fingerprint, $existingByFingerprint)) {
+                    if (! $existingByFingerprint[$fingerprint]) {
+                        $duplicates[] = [
+                            'row_number' => $candidate['row_number'],
+                            'source_original_data' => $candidate['source_original_data'],
+                        ];
+                    }
+
+                    continue;
+                }
+
+                $existingByFingerprint[$fingerprint] = true;
+                $rows[] = [
+                    'id' => (string) Str::uuid7(),
+                    ...$candidate['attributes'],
+                    'source_fingerprint' => $fingerprint,
+                    'source_id' => $job->source_id,
+                    'import_job_id' => $job->id,
+                    'source_original_data' => json_encode($candidate['source_original_data'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+                    'publication_status' => PublicationStatus::Draft->value,
+                    'created_by' => $actor->id,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            if ($rows !== []) {
+                DB::table('apbd')->insert($rows);
+            }
+
+            $nextAcceptedRows = $acceptedRows + count($batch) - count($duplicates);
+            $nextRejectedRows = $rejectedRows + $batchRejectedRows + count($duplicates);
+
+            $job->forceFill([
+                'processed_rows' => $processedRows,
+                'accepted_rows' => $nextAcceptedRows,
+                'rejected_rows' => $nextRejectedRows,
+            ])->save();
+
+            return $duplicates;
+        });
+    }
+
+    /**
+     * @param  array<int, array{row_number: int, attributes: array<string, string>, source_original_data: array<string, string>, fingerprint: string}>  $batch
+     * @return array{0: int, 1: int}
+     */
+    private function persistProgressBatch(
+        array $batch,
+        PekerjaanImpor $job,
+        Pengguna $actor,
+        mixed $reportStream,
+        int $processedRows,
+        int $acceptedRows,
+        int $rejectedRows,
+        int $batchRejectedRows,
+    ): array {
+        $duplicateRows = $this->persistBatch(
+            $batch,
+            $job,
+            $actor,
+            $processedRows,
+            $acceptedRows,
+            $rejectedRows,
+            $batchRejectedRows,
+        );
+        $acceptedRows += count($batch) - count($duplicateRows);
+        $rejectedRows += $batchRejectedRows + count($duplicateRows);
+
+        foreach ($duplicateRows as $duplicate) {
+            $this->recordRejectedRow(
+                $duplicate['row_number'],
+                ['duplicate' => 'Potential duplicate of an existing APBD record; the source row was not imported.'],
+                $duplicate['source_original_data'],
+                $reportStream,
+            );
         }
 
-        if ($rows !== []) {
-            DB::transaction(fn () => DB::table('apbd')->insert($rows));
-        }
-
-        return $duplicates;
+        return [$acceptedRows, $rejectedRows];
     }
 
     /**
      * @param  array<string, string>  $errors
      * @param  array<string, string>  $sourceValues
      * @param  resource  $reportStream
-     * @param  array<string, int>  $reasonCounts
-     * @param  array<int, array{row_number: int, errors: array<string, string>}>  $examples
      */
     private function recordRejectedRow(
         int $rowNumber,
         array $errors,
         array $sourceValues,
         mixed $reportStream,
-        array &$reasonCounts,
-        array &$examples,
     ): void {
         foreach ($errors as $field => $reason) {
-            $summaryKey = $field.': '.$reason;
-            $reasonCounts[$summaryKey] = ($reasonCounts[$summaryKey] ?? 0) + 1;
             $rawValue = $sourceValues[$field] ?? '';
 
-            fputcsv($reportStream, [
+            if (fputcsv($reportStream, [
                 $rowNumber,
                 $field,
                 $reason,
                 $this->safeCsvCell($rawValue),
-            ], ',', '"', '');
+            ], ',', '"', '') === false) {
+                throw new RuntimeException('Unable to write the private validation report.');
+            }
+        }
+    }
+
+    private function countRows(UploadedFile $file): int
+    {
+        $totalRows = 0;
+
+        foreach ($this->spreadsheetReader->rows($file) as $_row) {
+            $totalRows++;
         }
 
-        if (count($examples) < self::MAX_ERROR_EXAMPLES) {
-            $examples[] = ['row_number' => $rowNumber, 'errors' => $errors];
-        }
+        return $totalRows;
     }
 
     /** @return array<string, string> */
@@ -281,24 +453,5 @@ class ApbdImportService
     private function safeCsvCell(string $value): string
     {
         return preg_match('/^[\t\r\n ]*[=+@\-]/', $value) ? "'".$value : $value;
-    }
-
-    private function failJob(
-        PekerjaanImpor $job,
-        Pengguna $actor,
-        string $reason,
-        int $totalRows = 0,
-        int $acceptedRows = 0,
-        int $rejectedRows = 0,
-    ): void {
-        $job->forceFill([
-            'status' => 'failed',
-            'total_rows' => $totalRows,
-            'accepted_rows' => $acceptedRows,
-            'rejected_rows' => $rejectedRows,
-            'finished_at' => now(),
-        ])->save();
-
-        $this->auditLogService->record($actor, 'apbd.import_failed', 'apbd_import', $job->id, null, ['reason' => $reason]);
     }
 }

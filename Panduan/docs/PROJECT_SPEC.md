@@ -9,7 +9,7 @@ TeraPublic is a civic-tech platform for transparency of public data, monitoring 
 - **Frontend:** existing Next.js App Router, TypeScript, Tailwind CSS, and Turbopack; code under `src/`.
 - **Main backend:** Laravel REST API using MVC conventions plus a Service Layer and domain-oriented modules.
 - **Main database:** PostgreSQL. Laravel migrations/Eloquent own operational product tables and business workflows.
-- **Authentication:** Laravel Sanctum first-party SPA cookie/session authentication is the preferred default when the SPA and API share a top-level domain. CSRF, trusted/stateful domains, credentials, and CORS must be configured correctly.
+- **Authentication:** Laravel Sanctum first-party SPA cookie/session authentication remains the preferred default when the SPA and API share a top-level domain. Active Admins may also issue short-lived personal access tokens for direct API clients, sent as Bearer tokens; never expose these tokens in the browser.
 - **AI backend:** separate Python service for RAG and, later, ML. It does not duplicate Laravel user, facility, APBD, or publication business logic.
 - **Vector storage:** PostgreSQL + pgvector is an initial candidate. Decide exact data ownership and deployment details when implementing RAG.
 
@@ -42,7 +42,7 @@ Next.js owns page rendering, UI state, and API calls. Laravel owns API authoriza
 - The previously published version remains public until its replacement is validated and published.
 - Data withdrawn as invalid must be hidden publicly but retained for audit/history by default.
 - Public API responses return published versions only.
-- APBD imports accept CSV/XLSX with normalized source-column headers, validate rows, report duplicate candidates, and return accepted/rejected counts with an Admin-only error report. This API imports directly; it does not currently provide a preview or manual column-mapping step.
+- APBD imports accept CSV/XLSX up to 20 MB with normalized source-column headers, retain the original file, and process rows in background batches. Admins can poll job progress and retrieve accepted/rejected counts plus a private row-error report; the API does not provide a preview or manual column-mapping step.
 - APBD rows retain the source's eight columns: `periode_data`, `tanggal`, `kode_opd`, `nama_opd`, `akun_jenis`, `nama_akun`, `anggaran`, and `realisasi`.
 - Duplicate fingerprints are indexed as non-unique candidates only. Do not infer a unique combination key; imports report and skip a matching row rather than overwrite it.
 
@@ -67,7 +67,7 @@ Audit candidate datasets for schema, row count, periods, nulls, duplicates, iden
 ## 6. Initial domain entities
 See `../spec/terapublic.schema.json` for machine-readable conceptual entities and `ERD.mmd` for a visual overview.
 
-- Identity/access: users, Laravel server-side sessions.
+- Identity/access: users, Laravel server-side sessions, and Sanctum personal access tokens for direct API clients.
 - Reference data: regions/region versions, categories, data sources.
 - Domain data: facilities/facility versions and APBD records with source provenance and correction history.
 - General catalog: datasets, dataset versions, dataset rows, import jobs.
