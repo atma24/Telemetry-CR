@@ -330,7 +330,7 @@ it('filters published APBD records and dashboard counts by data period', functio
         ]);
 });
 
-it('imports CSV rows as drafts, skips duplicate candidates, and keeps a private error report', function () {
+it('publishes valid imported CSV rows automatically and keeps a private error report', function () {
     Storage::fake('local');
     Queue::fake();
     $admin = Pengguna::factory()->admin()->create();
@@ -385,10 +385,17 @@ it('imports CSV rows as drafts, skips duplicate candidates, and keeps a private 
     $this->assertDatabaseCount('apbd', 2);
     $this->assertDatabaseHas('apbd', [
         'import_job_id' => $jobId,
-        'publication_status' => 'draft',
+        'publication_status' => 'published',
         'nama_opd' => 'Dinas Baru',
         'realisasi' => '1500.25',
+        'created_by' => $admin->id,
+        'reviewed_by' => $admin->id,
     ]);
+    expect(Apbd::query()->where('import_job_id', $jobId)->value('published_at'))->not->toBeNull();
+    $this->getJson('/api/apbd?periode_data=202404')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.nama_opd', 'Dinas Baru');
     expect($job->original_filename)->toBe('apbd.csv');
     expect($job->status)->toBe('completed_with_errors');
     expect($job->processed_rows)->toBe(3);
@@ -417,6 +424,21 @@ it('imports CSV rows as drafts, skips duplicate candidates, and keeps a private 
         ->assertForbidden();
     $this->getJson("/api/admin/apbd/imports/{$jobId}/errors")
         ->assertForbidden();
+});
+
+it('rejects APBD import files larger than 50 MB', function () {
+    Storage::fake('local');
+    Queue::fake();
+    $admin = Pengguna::factory()->admin()->create();
+    $upload = UploadedFile::fake()->create('apbd.csv', 51201, 'text/csv');
+
+    $this->actingAs($admin)
+        ->withHeader('Accept', 'application/json')
+        ->post('/api/admin/apbd/import', ['file' => $upload])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('file');
+
+    Queue::assertNothingPushed();
 });
 
 it('counts rows already persisted by the same import as accepted when a worker retries', function () {
@@ -493,7 +515,7 @@ it('imports a valid XLSX worksheet without adding spreadsheet dependencies', fun
         'kode_opd' => '00102',
         'nama_opd' => 'Dinas Pekerjaan Umum',
         'anggaran' => '1250000000.00',
-        'publication_status' => 'draft',
+        'publication_status' => 'published',
     ]);
 });
 

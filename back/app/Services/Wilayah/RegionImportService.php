@@ -15,7 +15,10 @@ use Throwable;
 
 class RegionImportService
 {
-    public function __construct(private readonly WilayahService $wilayahService) {}
+    public function __construct(
+        private readonly WilayahService $wilayahService,
+        private readonly RegionGeometry $regionGeometry,
+    ) {}
 
     public function queueImport(UploadedFile $file, Pengguna $actor, ?string $sourceId): PekerjaanImpor
     {
@@ -79,7 +82,7 @@ class RegionImportService
                     $level = $this->normalizeLevel($levelRaw);
                     $parentCode = $this->property($properties, ['kode_wilayah_induk', 'kode_induk', 'parent_code', 'parent_region_code', 'KODE_INDUK']);
                     $geometry = $feature['geometry'] ?? null;
-                    if ($code === null || $name === null || $level === null || ! $this->validGeometry($geometry)) {
+                    if ($code === null || $name === null || $level === null || ! $this->regionGeometry->isValid($geometry)) {
                         throw new InvalidArgumentException('Feature needs recognized region code, name, level, and valid GeoJSON geometry properties.');
                     }
                     if (VersiWilayah::query()->where('code', $code)->exists()) {
@@ -171,75 +174,6 @@ class RegionImportService
         $level = $aliases[$level] ?? $level;
 
         return in_array($level, ['provinsi', 'kota', 'kabupaten', 'kecamatan', 'kelurahan'], true) ? $level : null;
-    }
-
-    private function validGeometry(mixed $geometry): bool
-    {
-        if (! is_array($geometry) || ! in_array($geometry['type'] ?? null, ['Point', 'MultiPoint', 'LineString', 'MultiLineString', 'Polygon', 'MultiPolygon', 'GeometryCollection'], true)) {
-            return false;
-        }
-
-        if ($geometry['type'] === 'GeometryCollection') {
-            return is_array($geometry['geometries'] ?? null)
-                && $geometry['geometries'] !== []
-                && collect($geometry['geometries'])->every(fn (mixed $item): bool => $this->validGeometry($item));
-        }
-
-        $coordinates = $geometry['coordinates'] ?? null;
-        if (! is_array($coordinates) || $coordinates === []) {
-            return false;
-        }
-
-        switch ($geometry['type']) {
-            case 'Point':
-                return $this->validPosition($coordinates);
-            case 'MultiPoint':
-                return collect($coordinates)->isNotEmpty() && collect($coordinates)->every(fn (mixed $position): bool => is_array($position) && $this->validPosition($position));
-            case 'LineString':
-                return $this->validLine($coordinates);
-            case 'MultiLineString':
-                return collect($coordinates)->isNotEmpty() && collect($coordinates)->every(fn (mixed $line): bool => is_array($line) && $this->validLine($line));
-            case 'Polygon':
-                return $this->validPolygon($coordinates);
-            case 'MultiPolygon':
-                return collect($coordinates)->isNotEmpty() && collect($coordinates)->every(fn (mixed $polygon): bool => is_array($polygon) && $this->validPolygon($polygon));
-            default:
-                return false;
-        }
-    }
-
-    /** @param array<int, mixed> $position */
-    private function validPosition(array $position): bool
-    {
-        return count($position) >= 2
-            && is_numeric($position[0] ?? null)
-            && is_numeric($position[1] ?? null)
-            && (float) $position[0] >= -180
-            && (float) $position[0] <= 180
-            && (float) $position[1] >= -90
-            && (float) $position[1] <= 90;
-    }
-
-    /** @param array<int, mixed> $line */
-    private function validLine(array $line): bool
-    {
-        return count($line) >= 2
-            && collect($line)->every(fn (mixed $position): bool => is_array($position) && $this->validPosition($position));
-    }
-
-    /** @param array<int, mixed> $rings */
-    private function validPolygon(array $rings): bool
-    {
-        if ($rings === []) {
-            return false;
-        }
-        foreach ($rings as $ring) {
-            if (! is_array($ring) || count($ring) < 4 || ! $this->validLine($ring) || $ring[0] !== $ring[array_key_last($ring)]) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private function numeric(?string $value, float $minimum, float $maximum): ?float

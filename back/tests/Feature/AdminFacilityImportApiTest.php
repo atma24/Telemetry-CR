@@ -1,9 +1,11 @@
 <?php
 
+use App\Enums\Wilayah\PublicationStatus;
 use App\Models\Fasilitas\VersiFasilitas;
 use App\Models\Kategori;
 use App\Models\PekerjaanImpor;
 use App\Models\Pengguna;
+use App\Models\Wilayah\Wilayah;
 use App\Services\Fasilitas\FacilityImportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -143,4 +145,99 @@ it('rejects non-point or invalid OSM coordinates as row errors while retaining n
         ->and($version->region_id)->toBeNull()
         ->and($job->fresh()->accepted_rows)->toBe(1)
         ->and($job->fresh()->rejected_rows)->toBe(1);
+});
+
+it('uses only explicit OSM names and point geometry, handles feature ids, malformed JSON, and repeat imports safely', function () {
+    Storage::fake('local');
+    Queue::fake();
+    $admin = Pengguna::factory()->admin()->create();
+    Kategori::query()->create(['name' => 'Fasilitas Publik', 'slug' => 'fasilitas-publik']);
+    $geoJson = json_encode([
+        'type' => 'FeatureCollection',
+        'features' => [
+            [
+                'type' => 'Feature', 'id' => 'way/42',
+                'geometry' => ['type' => 'Point', 'coordinates' => [106.81, -6.18]],
+                'properties' => ['name' => 'Taman Contoh', 'amenity' => 'park'],
+            ],
+            [
+                'type' => 'Feature',
+                'geometry' => ['type' => 'Point', 'coordinates' => [106.82, -6.19]],
+                'properties' => ['@id' => 'node/43', 'operator' => 'Operator bukan nama', 'brand' => 'Brand bukan nama'],
+            ],
+            [
+                'type' => 'Feature',
+                'geometry' => ['type' => 'MultiPoint', 'coordinates' => [[106.83, -6.20]]],
+                'properties' => ['@id' => 'node/44', 'name' => 'Bukan Point'],
+            ],
+        ],
+    ], JSON_THROW_ON_ERROR);
+
+    $submit = fn (string $filename, string $contents) => $this->actingAs($admin)->post('/api/admin/facilities/import', [
+        'dataset_type' => 'osm',
+        'file' => UploadedFile::fake()->createWithContent($filename, $contents),
+    ], ['Accept' => 'application/json']);
+
+    $firstResponse = $submit('osm.geojson', $geoJson);
+    $firstResponse->assertAccepted();
+    $firstJob = PekerjaanImpor::query()->findOrFail($firstResponse->json('data.id'));
+    app(FacilityImportService::class)->process($firstJob->id);
+    $beforeRetry = VersiFasilitas::query()->count();
+
+    $retryResponse = $submit('osm-retry.geojson', $geoJson);
+    $retryResponse->assertAccepted();
+    $retryJob = PekerjaanImpor::query()->findOrFail($retryResponse->json('data.id'));
+    app(FacilityImportService::class)->process($retryJob->id);
+
+    expect($beforeRetry)->toBe(1)
+        ->and(VersiFasilitas::query()->count())->toBe(1)
+        ->and(VersiFasilitas::query()->firstOrFail()->fasilitas->external_key)->toBe('osm:way/42')
+        ->and($firstJob->fresh()->accepted_rows)->toBe(1)
+        ->and($firstJob->fresh()->rejected_rows)->toBe(2)
+        ->and($retryJob->fresh()->accepted_rows)->toBe(0)
+        ->and($retryJob->fresh()->rejected_rows)->toBe(3);
+
+    $malformedResponse = $submit('broken.geojson', '{not-json');
+    $malformedResponse->assertAccepted();
+    $malformedJob = PekerjaanImpor::query()->findOrFail($malformedResponse->json('data.id'));
+    app(FacilityImportService::class)->process($malformedJob->id);
+
+    expect($malformedJob->fresh()->status)->toBe('failed')
+        ->and(VersiFasilitas::query()->count())->toBe(1);
+});
+
+it('matches facility localities only by an exact published village and parent district pair', function () {
+    Storage::fake('local');
+    Queue::fake();
+    $admin = Pengguna::factory()->admin()->create();
+    Kategori::query()->create(['name' => 'Sekolah', 'slug' => 'sekolah']);
+    $district = Wilayah::query()->create();
+    $district->versi()->create([
+        'version_no' => 1, 'code' => '317101', 'name' => 'Kecamatan X', 'level' => 'kecamatan',
+        'publication_status' => PublicationStatus::Published, 'created_by' => $admin->id,
+    ]);
+    $village = Wilayah::query()->create();
+    $village->versi()->create([
+        'version_no' => 1, 'code' => '3171011001', 'name' => 'Gambir', 'level' => 'kelurahan',
+        'parent_region_id' => $district->id, 'publication_status' => PublicationStatus::Published,
+        'created_by' => $admin->id,
+    ]);
+
+    $response = $this->actingAs($admin)->post('/api/admin/facilities/import', [
+        'dataset_type' => 'school',
+        'periode_data' => '2024',
+        'file' => UploadedFile::fake()->createWithContent(
+            'schools.csv',
+            "nama_sekolah,npsn,kelurahan,kecamatan\nSekolah Cocok,12345678,Gambir,Kecamatan X\nSekolah Tidak Cocok,87654321,Gambir,"
+        ),
+    ], ['Accept' => 'application/json']);
+    $response->assertAccepted();
+    $job = PekerjaanImpor::query()->findOrFail($response->json('data.id'));
+    app(FacilityImportService::class)->process($job->id);
+
+    $versions = VersiFasilitas::query()->orderBy('name')->get();
+    expect($versions)->toHaveCount(2)
+        ->and($versions->firstWhere('name', 'Sekolah Cocok')->region_id)->toBe($village->id)
+        ->and($versions->firstWhere('name', 'Sekolah Tidak Cocok')->region_id)->toBeNull()
+        ->and($job->fresh()->warning_rows)->toBe(2);
 });

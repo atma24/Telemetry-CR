@@ -21,7 +21,7 @@ class ImportApbdRequest extends FormRequest
                 'file',
                 'mimetypes:text/plain,text/csv,application/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/zip',
                 'extensions:csv,xlsx',
-                'max:20480',
+                'max:51200',
             ],
             'source_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('data_sources', 'id')],
         ];

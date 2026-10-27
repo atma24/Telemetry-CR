@@ -340,8 +340,10 @@ class ApbdImportService
                     'source_id' => $job->source_id,
                     'import_job_id' => $job->id,
                     'source_original_data' => json_encode($candidate['source_original_data'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
-                    'publication_status' => PublicationStatus::Draft->value,
+                    'publication_status' => PublicationStatus::Published->value,
                     'created_by' => $actor->id,
+                    'reviewed_by' => $actor->id,
+                    'published_at' => $now,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];

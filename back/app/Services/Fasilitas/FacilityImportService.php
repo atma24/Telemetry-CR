@@ -8,9 +8,9 @@ use App\Models\Fasilitas\Fasilitas;
 use App\Models\Fasilitas\VersiFasilitas;
 use App\Models\PekerjaanImpor;
 use App\Models\Pengguna;
-use App\Models\Wilayah\VersiWilayah;
 use App\Services\Apbd\ApbdSpreadsheetReader;
 use App\Services\Audit\AuditLogService;
+use App\Services\Wilayah\RegionMatcher;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -27,6 +27,7 @@ class FacilityImportService
     public function __construct(
         private readonly ApbdSpreadsheetReader $reader,
         private readonly AuditLogService $auditLogService,
+        private readonly RegionMatcher $regionMatcher,
     ) {}
 
     public function queueImport(UploadedFile $file, string $datasetType, Pengguna $actor, ?string $sourceId, ?string $period): PekerjaanImpor
@@ -250,7 +251,11 @@ class FacilityImportService
     private function processGeoJson(PekerjaanImpor $job, Pengguna $actor, mixed $report): array
     {
         $path = Storage::disk('local')->path($job->file_path ?? '');
-        $data = json_decode((string) file_get_contents($path), true);
+        try {
+            $data = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable $exception) {
+            throw new InvalidArgumentException('OSM import file contains invalid JSON.', previous: $exception);
+        }
         if (! is_array($data) || ($data['type'] ?? null) !== 'FeatureCollection' || ! is_array($data['features'] ?? null)) {
             throw new InvalidArgumentException('OSM import must be a GeoJSON FeatureCollection with a features array.');
         }
@@ -265,12 +270,18 @@ class FacilityImportService
                 }
                 $properties = $feature['properties'];
                 $osmId = $this->property($properties, ['@id', 'id', 'osm_id']);
+                if ($osmId === null && is_scalar($feature['id'] ?? null) && trim((string) $feature['id']) !== '') {
+                    $osmId = trim((string) $feature['id']);
+                }
                 $identity = $osmId !== null ? 'osm:'.$osmId : 'osm:feature:'.hash('sha256', json_encode($feature, JSON_THROW_ON_ERROR));
-                $name = $this->property($properties, ['name', 'operator', 'brand']);
+                $name = $this->property($properties, ['name']);
                 if ($name === null) {
-                    throw new InvalidArgumentException('No supported facility-name property (name/operator/brand) was found.');
+                    throw new InvalidArgumentException('The OSM feature has no non-empty name property.');
                 }
                 [$lat, $lon] = $this->geoJsonCoordinates($feature['geometry']);
+                if ($lat === null || $lon === null) {
+                    throw new InvalidArgumentException('OSM facility geometry must be a Point with valid longitude/latitude coordinates.');
+                }
                 $existing = Fasilitas::query()->where('external_key', $identity)->exists();
                 if ($existing) {
                     $rejected++;
@@ -310,10 +321,6 @@ class FacilityImportService
                     ]);
                 });
                 $accepted++;
-                if ($lat === null || $lon === null) {
-                    $warnings++;
-                    $this->reportRow($report, $index + 1, 'geometry', 'Feature has no point coordinates usable for the facility location.', '');
-                }
             } catch (Throwable $exception) {
                 $rejected++;
                 $this->reportRow($report, $index + 1, 'feature', $exception->getMessage(), '');
@@ -345,8 +352,9 @@ class FacilityImportService
     private function geoJsonCoordinates(array $geometry): array
     {
         $coordinates = $geometry['coordinates'] ?? null;
-        if (($geometry['type'] ?? null) !== 'Point' || ! is_array($coordinates) || count($coordinates) < 2) {
-            return [null, null];
+        if (($geometry['type'] ?? null) !== 'Point' || ! is_array($coordinates) || count($coordinates) < 2
+            || ! is_numeric($coordinates[0] ?? null) || ! is_numeric($coordinates[1] ?? null)) {
+            throw new InvalidArgumentException('OSM facility geometry must be a Point with numeric coordinates.');
         }
 
         return $this->coordinates(is_numeric($coordinates[1]) ? (string) $coordinates[1] : null, is_numeric($coordinates[0]) ? (string) $coordinates[0] : null);
@@ -369,16 +377,7 @@ class FacilityImportService
 
     private function matchRegion(?string $village, ?string $district): ?string
     {
-        foreach ([['kelurahan', $village], ['kecamatan', $district]] as [$level, $name]) {
-            if (is_string($name) && trim($name) !== '') {
-                $regionId = VersiWilayah::query()->terpublikasi()->where('level', $level)->whereRaw('LOWER(name) = ?', [mb_strtolower(trim($name))])->value('region_id');
-                if (is_string($regionId)) {
-                    return $regionId;
-                }
-            }
-        }
-
-        return null;
+        return $this->regionMatcher->match($village, $district);
     }
 
     /** @param array<string, string> $values */
