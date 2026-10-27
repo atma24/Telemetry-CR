@@ -40,6 +40,7 @@ Next.js owns page rendering, UI state, and API calls. Laravel owns API authoriza
 - Regions and facilities can be manually entered or imported; APBD rows can be manually entered or imported from supported CSV/XLSX files.
 - General cross-topic datasets use metadata and flexible row storage only where appropriate. Validate JSONB usage against actual MVP data size and query needs.
 - Record source attribution and import provenance where applicable: source name/URL, source type, license/attribution, import job, raw file/source row.
+- School, market, OSM-facility and administrative-boundary imports are Admin-uploaded jobs. APBD keeps its established eight-column upload contract; operational dataset rows are not seeded.
 - Original imported files and source values must be retained. Corrections create a new version/revision with an audit trail; do not silently overwrite source values.
 - New data follows Draft -> Validation -> Published.
 - The previously published version remains public until its replacement is validated and published.

@@ -8,6 +8,8 @@
     "Laravel migrations and Eloquent own the operational product schema.",
     "Facility sources include OSM GeoJSON, DKI school data, and Pasar Jaya market data; hospital data is excluded.",
     "School and market data use typed one-to-one detail tables; raw source rows remain on facility versions.",
+    "Operational school, market, OSM-facility, administrative-boundary, and APBD rows are uploaded through Admin import workflows, never seeded.",
+    "Import jobs may retain import options and report accepted, rejected, and warning counts.",
     "APBD records use the eight source dataset columns plus publication and provenance fields.",
     "The source fingerprint is indexed but non-unique; it reports duplicate candidates and never defines an APBD natural key.",
     "Project migrations remain historical; the forward-only APBD migration removes project tables and detaches legacy project feedback targets.",
@@ -740,6 +742,17 @@
         {
           "name": "rejected_rows",
           "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "warning_rows",
+          "type": "integer",
+          "required": true,
+          "default": 0
+        },
+        {
+          "name": "options",
+          "type": "jsonb",
           "nullable": true
         },
         {

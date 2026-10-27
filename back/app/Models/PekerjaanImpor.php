@@ -12,9 +12,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property array<string, mixed>|null $options
+ */
 #[Fillable([
     'target_type', 'source_id', 'original_filename', 'file_path', 'error_report_path', 'failure_reason', 'status',
-    'total_rows', 'processed_rows', 'accepted_rows', 'rejected_rows', 'initiated_by', 'finished_at',
+    'total_rows', 'processed_rows', 'accepted_rows', 'rejected_rows', 'warning_rows', 'options', 'initiated_by', 'finished_at',
 ])]
 class PekerjaanImpor extends Model
 {
@@ -30,6 +33,8 @@ class PekerjaanImpor extends Model
             'processed_rows' => 'integer',
             'accepted_rows' => 'integer',
             'rejected_rows' => 'integer',
+            'warning_rows' => 'integer',
+            'options' => 'array',
             'finished_at' => 'datetime',
         ];
     }

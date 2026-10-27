@@ -7,7 +7,9 @@ use Database\Seeders\KategoriSeeder;
 it('seeds the documented topic categories once without inventing sources or facilities', function () {
     $this->seed(DatabaseSeeder::class);
 
-    $this->assertDatabaseCount('categories', 7);
+    $this->assertDatabaseCount('categories', 9);
+    $this->assertDatabaseHas('categories', ['slug' => 'sekolah', 'name' => 'Sekolah']);
+    $this->assertDatabaseHas('categories', ['slug' => 'pasar', 'name' => 'Pasar']);
     $this->assertDatabaseCount('data_sources', 0);
     $this->assertDatabaseCount('facilities', 0);
     $this->assertDatabaseCount('facility_versions', 0);
@@ -17,7 +19,7 @@ it('seeds the documented topic categories once without inventing sources or faci
 
     $this->seed(KategoriSeeder::class);
 
-    $this->assertDatabaseCount('categories', 7);
+    $this->assertDatabaseCount('categories', 9);
     $this->assertDatabaseHas('categories', [
         'id' => $category->id,
         'slug' => 'fasilitas-publik',

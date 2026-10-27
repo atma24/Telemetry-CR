@@ -285,6 +285,8 @@ test('facilities retain shared versions with typed optional school and market de
         ->and(Schema::hasTable('market_locations'))->toBeTrue()
         ->and(Schema::hasColumn('region_versions', 'geometry'))->toBeTrue()
         ->and(Schema::hasColumn('region_versions', 'centroid_latitude'))->toBeTrue()
+        ->and(Schema::hasColumn('import_jobs', 'warning_rows'))->toBeTrue()
+        ->and(Schema::hasColumn('import_jobs', 'options'))->toBeTrue()
         ->and(Schema::getColumnType('facility_versions', 'region_id'))->toBe('uuid');
 });
 

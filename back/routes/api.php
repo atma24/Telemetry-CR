@@ -47,6 +47,11 @@ Route::name('api.')->group(function (): void {
     Route::prefix('admin')->name('admin.')->middleware(['auth:sanctum', 'can:admin'])->group(function (): void {
         Route::get('facilities', [AdminFasilitasController::class, 'index'])->name('facilities.index');
         Route::post('facilities', [AdminFasilitasController::class, 'store'])->name('facilities.store');
+        Route::post('facilities/import', [AdminFasilitasController::class, 'import'])->middleware('throttle:10,1')->name('facilities.import');
+        Route::get('facilities/imports/{importJob}', [AdminFasilitasController::class, 'showImport'])
+            ->whereUuid('importJob')->name('facilities.imports.show');
+        Route::get('facilities/imports/{importJob}/errors', [AdminFasilitasController::class, 'downloadImportErrors'])
+            ->whereUuid('importJob')->name('facilities.imports.errors');
         Route::get('facilities/{facility}', [AdminFasilitasController::class, 'show'])
             ->whereUuid('facility')->name('facilities.show');
         Route::put('facilities/{facility}', [AdminFasilitasController::class, 'update'])
@@ -75,6 +80,11 @@ Route::name('api.')->group(function (): void {
         Route::post('apbd/{apbd}/publish', [AdminApbdController::class, 'publish'])->whereUuid('apbd')->name('apbd.publish');
 
         Route::get('regions', [AdminWilayahController::class, 'index'])->name('regions.index');
+        Route::post('regions/import', [AdminWilayahController::class, 'import'])->middleware('throttle:10,1')->name('regions.import');
+        Route::get('regions/imports/{importJob}', [AdminWilayahController::class, 'showImport'])
+            ->whereUuid('importJob')->name('regions.imports.show');
+        Route::get('regions/imports/{importJob}/errors', [AdminWilayahController::class, 'downloadImportErrors'])
+            ->whereUuid('importJob')->name('regions.imports.errors');
         Route::post('regions', [AdminWilayahController::class, 'store'])->name('regions.store');
         Route::get('regions/{region}', [AdminWilayahController::class, 'show'])->whereUuid('region')->name('regions.show');
         Route::put('regions/{region}', [AdminWilayahController::class, 'update'])->whereUuid('region')->name('regions.update');

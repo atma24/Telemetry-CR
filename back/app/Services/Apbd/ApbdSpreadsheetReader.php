@@ -16,23 +16,37 @@ class ApbdSpreadsheetReader
     ];
 
     /**
+     * @param  list<string>|null  $requiredColumns
+     * @param  list<string>|null  $allowedColumns
      * @return Generator<int, array{row_number: int, values: array<string, string>, source_original_data: array<string, string>}>
      */
-    public function rows(UploadedFile $file): Generator
+    public function rows(UploadedFile $file, ?array $requiredColumns = null, ?array $allowedColumns = null): Generator
     {
+        $requiredColumns ??= self::REQUIRED_COLUMNS;
+
         if (strtolower($file->getClientOriginalExtension()) === 'csv') {
-            yield from $this->csvRows($file);
+            yield from $this->csvRows($file, $requiredColumns, $allowedColumns);
 
             return;
         }
 
-        yield from $this->xlsxRows($file);
+        $prefix = file_get_contents($file->getRealPath(), false, null, 0, 512);
+
+        if (is_string($prefix) && preg_match('/<(?:!doctype\s+html|html|table)\b/i', $prefix) === 1) {
+            yield from $this->htmlRows($file, $requiredColumns, $allowedColumns);
+
+            return;
+        }
+
+        yield from $this->xlsxRows($file, $requiredColumns, $allowedColumns);
     }
 
     /**
+     * @param  list<string>  $requiredColumns
+     * @param  list<string>|null  $allowedColumns
      * @return Generator<int, array{row_number: int, values: array<string, string>, source_original_data: array<string, string>}>
      */
-    private function csvRows(UploadedFile $file): Generator
+    private function csvRows(UploadedFile $file, array $requiredColumns, ?array $allowedColumns): Generator
     {
         $handle = fopen($file->getRealPath(), 'rb');
 
@@ -47,7 +61,7 @@ class ApbdSpreadsheetReader
                 throw new InvalidArgumentException('The CSV file is empty.');
             }
 
-            $mapping = $this->headerMapping($headers);
+            $mapping = $this->headerMapping($headers, $requiredColumns, $allowedColumns);
             $rowNumber = 1;
 
             while (($cells = fgetcsv($handle, null, ',', '"', '')) !== false) {
@@ -65,9 +79,11 @@ class ApbdSpreadsheetReader
     }
 
     /**
+     * @param  list<string>  $requiredColumns
+     * @param  list<string>|null  $allowedColumns
      * @return Generator<int, array{row_number: int, values: array<string, string>, source_original_data: array<string, string>}>
      */
-    private function xlsxRows(UploadedFile $file): Generator
+    private function xlsxRows(UploadedFile $file, array $requiredColumns, ?array $allowedColumns): Generator
     {
         if (! class_exists(ZipArchive::class) || ! class_exists(XMLReader::class)) {
             throw new InvalidArgumentException('The server must enable the PHP zip and xmlreader extensions to import XLSX files.');
@@ -135,7 +151,7 @@ class ApbdSpreadsheetReader
 
                     if ($mapping === null) {
                         $headers = $cells;
-                        $mapping = $this->headerMapping($headers);
+                        $mapping = $this->headerMapping($headers, $requiredColumns, $allowedColumns);
 
                         continue;
                     }
@@ -161,7 +177,13 @@ class ApbdSpreadsheetReader
     /** @param array<int, mixed> $headers
      * @return array<int, string>
      */
-    private function headerMapping(array $headers): array
+    /**
+     * @param  array<int, mixed>  $headers
+     * @param  list<string>  $requiredColumns
+     * @param  list<string>|null  $allowedColumns
+     * @return array<int, string>
+     */
+    private function headerMapping(array $headers, array $requiredColumns, ?array $allowedColumns): array
     {
         if (isset($headers[0]) && is_string($headers[0])) {
             $headers[0] = preg_replace('/^\xEF\xBB\xBF/', '', $headers[0]) ?? $headers[0];
@@ -172,6 +194,20 @@ class ApbdSpreadsheetReader
 
         foreach ($headers as $index => $header) {
             $name = $this->normalizeHeader((string) $header);
+            $name = [
+                'school_name' => 'nama_sekolah',
+                'nama_school' => 'nama_sekolah',
+                'market_name' => 'nama_pasar',
+                'postal_code' => 'kode_pos',
+                'phone' => 'telepon',
+                'telephone' => 'telepon',
+                'coord_x' => 'koordinat_x',
+                'coord_y' => 'koordinat_y',
+                'student_count' => 'jumlah_siswa',
+                'teacher_count' => 'jumlah_guru',
+                'village' => 'kelurahan',
+                'district' => 'kecamatan',
+            ][$name] ?? $name;
 
             if ($name !== '') {
                 if (isset($found[$name])) {
@@ -183,13 +219,79 @@ class ApbdSpreadsheetReader
             }
         }
 
-        $missing = array_values(array_diff(self::REQUIRED_COLUMNS, array_keys($found)));
+        $missing = array_values(array_diff($requiredColumns, array_keys($found)));
 
         if ($missing !== []) {
             throw new InvalidArgumentException('Missing required columns: '.implode(', ', $missing).'.');
         }
 
+        $unknown = $allowedColumns === null ? [] : array_values(array_diff(array_keys($found), $allowedColumns));
+        if ($unknown !== []) {
+            throw new InvalidArgumentException('Unknown columns: '.implode(', ', $unknown).'.');
+        }
+
         return $mapping;
+    }
+
+    /**
+     * @param  list<string>  $requiredColumns
+     * @param  list<string>|null  $allowedColumns
+     * @return Generator<int, array{row_number: int, values: array<string, string>, source_original_data: array<string, string>}>
+     */
+    private function htmlRows(UploadedFile $file, array $requiredColumns, ?array $allowedColumns): Generator
+    {
+        if (! class_exists(\DOMDocument::class)) {
+            throw new InvalidArgumentException('The server must enable the DOM extension to read HTML-table XLS files.');
+        }
+
+        $previousState = libxml_use_internal_errors(true);
+        $document = new \DOMDocument;
+
+        try {
+            $content = file_get_contents($file->getRealPath());
+
+            if (! is_string($content) || ! $document->loadHTML($content, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING)) {
+                throw new InvalidArgumentException('The uploaded HTML-table XLS file is invalid.');
+            }
+
+            $rows = $document->getElementsByTagName('tr');
+            $headers = [];
+            $mapping = null;
+            $rowNumber = 0;
+
+            foreach ($rows as $row) {
+                $rowNumber++;
+                $cells = [];
+
+                foreach ($row->childNodes as $cell) {
+                    if (in_array(strtolower($cell->nodeName), ['td', 'th'], true)) {
+                        $cells[] = trim(preg_replace('/\s+/u', ' ', html_entity_decode($cell->textContent, ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
+                    }
+                }
+
+                if ($cells === []) {
+                    continue;
+                }
+
+                if ($mapping === null) {
+                    $headers = $cells;
+                    $mapping = $this->headerMapping($headers, $requiredColumns, $allowedColumns);
+
+                    continue;
+                }
+
+                if (! $this->isEmptyRow($cells)) {
+                    yield $this->mappedRow($cells, $headers, $mapping, $rowNumber);
+                }
+            }
+
+            if ($mapping === null) {
+                throw new InvalidArgumentException('The HTML-table XLS file contains no header row.');
+            }
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousState);
+        }
     }
 
     private function normalizeHeader(string $header): string

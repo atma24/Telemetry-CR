@@ -10,18 +10,31 @@ class PenggunaSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->seedAccount(
-            'admin@example.com',
-            'Admin TeraPublic',
-            'admin',
-            (string) env('SEED_ADMIN_PASSWORD', 'password'),
-        );
-        $this->seedAccount(
-            'warga@example.com',
-            'Warga TeraPublic',
-            'citizen',
-            (string) env('SEED_CITIZEN_PASSWORD', 'password'),
-        );
+        $adminPassword = config('seed.admin_password');
+        $citizenPassword = config('seed.citizen_password');
+
+        if (app()->environment(['local', 'testing'])) {
+            $adminPassword ??= 'password';
+            $citizenPassword ??= 'password';
+        }
+
+        if (is_string($adminPassword) && $adminPassword !== '') {
+            $this->seedAccount(
+                'admin@example.com',
+                'Admin TeraPublic',
+                'admin',
+                $adminPassword,
+            );
+        }
+
+        if (is_string($citizenPassword) && $citizenPassword !== '') {
+            $this->seedAccount(
+                'warga@example.com',
+                'Warga TeraPublic',
+                'citizen',
+                $citizenPassword,
+            );
+        }
     }
 
     private function seedAccount(string $email, string $name, string $role, string $password): void
