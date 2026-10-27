@@ -26,7 +26,7 @@ class AdminFasilitasService
     public function adminFacilities(array $filters): LengthAwarePaginator
     {
         return VersiFasilitas::query()
-            ->with(['fasilitas', 'kategori', 'wilayah.versiTerpublikasi', 'sumberData'])
+            ->with(['fasilitas', 'kategori', 'wilayah.versiTerpublikasi', 'sumberData', 'sekolah', 'lokasiPasar'])
             ->when($filters['search'] ?? null, function (Builder $query, string $search): void {
                 $query->where('name', 'ilike', '%'.$search.'%');
             })
@@ -45,7 +45,7 @@ class AdminFasilitasService
     {
         return Fasilitas::query()
             ->with(['versi' => fn (HasMany $query) => $query->orderByDesc('version_no')->with([
-                'kategori', 'wilayah.versiTerpublikasi', 'sumberData',
+                'kategori', 'wilayah.versiTerpublikasi', 'sumberData', 'sekolah', 'lokasiPasar',
             ])])
             ->findOrFail($facilityId);
     }
@@ -54,7 +54,7 @@ class AdminFasilitasService
     public function createDraft(array $attributes, Pengguna $actor): VersiFasilitas
     {
         return DB::transaction(function () use ($attributes, $actor): VersiFasilitas {
-            $this->assertFacilityData($attributes);
+            $this->assertFacilityData($attributes, false);
 
             $facility = Fasilitas::query()->create();
             $version = $facility->versi()->create([
@@ -88,7 +88,7 @@ class AdminFasilitasService
                 'attributes', 'source_id', 'source_original_data',
             ]), $attributes);
 
-            $this->assertFacilityData($data);
+            $this->assertFacilityData($data, false);
 
             $version = $facility->versi()->create([
                 ...$data,
@@ -219,7 +219,7 @@ class AdminFasilitasService
     }
 
     /** @param array<string, mixed> $attributes */
-    private function assertFacilityData(array $attributes): void
+    private function assertFacilityData(array $attributes, bool $requireMappedRegion = true): void
     {
         $name = $attributes['name'] ?? null;
         $categoryId = $attributes['category_id'] ?? null;
@@ -229,10 +229,10 @@ class AdminFasilitasService
             throw ValidationException::withMessages(['name' => 'A facility name of up to 255 characters is required.']);
         }
 
-        if (! is_string($categoryId) || ! is_string($regionId)) {
+        if (! is_string($categoryId) || ($requireMappedRegion && ! is_string($regionId))) {
             throw ValidationException::withMessages([
                 'category_id' => 'A facility category is required.',
-                'region_id' => 'A facility region is required.',
+                ...($requireMappedRegion ? ['region_id' => 'A facility region is required.'] : []),
             ]);
         }
 
@@ -240,7 +240,7 @@ class AdminFasilitasService
             throw ValidationException::withMessages(['category_id' => 'The selected facility category does not exist.']);
         }
 
-        if (! VersiWilayah::query()->terpublikasi()->where('region_id', $regionId)->exists()) {
+        if ($requireMappedRegion && ! VersiWilayah::query()->terpublikasi()->where('region_id', $regionId)->exists()) {
             throw ValidationException::withMessages([
                 'region_id' => 'The facility must reference a currently published region.',
             ]);

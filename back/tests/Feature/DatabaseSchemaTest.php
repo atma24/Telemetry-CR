@@ -278,6 +278,16 @@ test('personal access tokens store UUID morph IDs for user accounts', function (
         ->and(Schema::getColumnType('personal_access_tokens', 'tokenable_id'))->toBe('uuid');
 });
 
+test('facilities retain shared versions with typed optional school and market details', function () {
+    expect(Schema::hasTable('facilities'))->toBeTrue()
+        ->and(Schema::hasTable('facility_versions'))->toBeTrue()
+        ->and(Schema::hasTable('schools'))->toBeTrue()
+        ->and(Schema::hasTable('market_locations'))->toBeTrue()
+        ->and(Schema::hasColumn('region_versions', 'geometry'))->toBeTrue()
+        ->and(Schema::hasColumn('region_versions', 'centroid_latitude'))->toBeTrue()
+        ->and(Schema::getColumnType('facility_versions', 'region_id'))->toBe('uuid');
+});
+
 test('import jobs store row progress and private terminal failure reasons', function () {
     expect(Schema::hasColumn('import_jobs', 'processed_rows'))->toBeTrue()
         ->and(Schema::hasColumn('import_jobs', 'failure_reason'))->toBeTrue();

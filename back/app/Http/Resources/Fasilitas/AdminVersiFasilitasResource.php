@@ -39,6 +39,8 @@ class AdminVersiFasilitasResource extends JsonResource
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
             'attributes' => $this->attributes,
+            'school' => $this->whenLoaded('sekolah'),
+            'market_location' => $this->whenLoaded('lokasiPasar'),
             'source_id' => $this->source_id,
             'source' => $this->whenLoaded('sumberData', fn (SumberData $source): array => [
                 'id' => $source->id,

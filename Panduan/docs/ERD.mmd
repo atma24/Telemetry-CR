@@ -45,6 +45,9 @@ erDiagram
         uuid source_id FK
         uuid import_job_id FK
         json source_original_data
+        json geometry
+        decimal centroid_latitude
+        decimal centroid_longitude
         string publication_status
         uuid created_by FK
         uuid reviewed_by FK
@@ -86,6 +89,29 @@ erDiagram
         uuid created_by FK
         uuid reviewed_by FK
         datetime published_at
+    }
+    SCHOOLS {
+        uuid id PK
+        uuid facility_version_id FK UK
+        string periode_data
+        string npsn
+        string kelurahan_sumber
+        string kecamatan_sumber
+        int jumlah_siswa
+        int jumlah_guru
+        string kepala_sekolah
+        string telp_sekolah
+        string akreditasi
+    }
+    MARKET_LOCATIONS {
+        uuid id PK
+        uuid facility_version_id FK UK
+        string periode_data
+        string wilayah_sumber
+        string kecamatan_sumber
+        string kelurahan_sumber
+        string kode_pos
+        string telepon
     }
     APBD {
         uuid id PK
@@ -249,6 +275,8 @@ erDiagram
     IMPORT_JOBS o|--o{ FACILITY_VERSIONS : imported_by
     USERS ||--o{ FACILITY_VERSIONS : creates
     USERS o|--o{ FACILITY_VERSIONS : reviews
+    FACILITY_VERSIONS ||--o| SCHOOLS : school_details
+    FACILITY_VERSIONS ||--o| MARKET_LOCATIONS : market_details
 
     APBD o|--o{ APBD : revises
     DATA_SOURCES o|--o{ APBD : sourced_from

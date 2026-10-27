@@ -130,7 +130,7 @@ it('requires facility identity fields and rejects categories that do not exist',
     $this->actingAs($admin)
         ->postJson('/api/admin/facilities', [])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['name', 'category_id', 'region_id']);
+        ->assertJsonValidationErrors(['name', 'category_id']);
 
     $payload = facilityAdminPayload($category, $region);
     $payload['category_id'] = (string) Str::uuid7();
@@ -142,7 +142,7 @@ it('requires facility identity fields and rejects categories that do not exist',
     $this->assertDatabaseCount('facilities', 0);
 });
 
-it('requires a coordinate pair and a currently published region before creating a facility draft', function () {
+it('requires coordinate pairs on drafts and a currently published region before validation', function () {
     $admin = Pengguna::factory()->admin()->create();
     $category = makeFacilityCategoryForAdminTest();
     $unpublishedRegion = Wilayah::query()->create();
@@ -155,11 +155,12 @@ it('requires a coordinate pair and a currently published region before creating 
         ->assertJsonValidationErrors(['longitude']);
 
     $payload['longitude'] = 106.8;
-    $this->postJson('/api/admin/facilities', $payload)
+    $draft = $this->postJson('/api/admin/facilities', $payload)->assertCreated();
+    $this->postJson('/api/admin/facilities/'.$draft->json('data.facility_id').'/versions/'.$draft->json('data.id').'/validate')
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['region_id']);
 
-    $this->assertDatabaseCount('facilities', 0);
+    $this->assertDatabaseCount('facilities', 1);
 });
 
 it('publishes replacement versions without losing history and exposes only the published public fields', function () {

@@ -1,6 +1,6 @@
 # TeraPublic — Project Specification
 
-**Status:** APBD module implementation baseline. Architecture uses Laravel + Next.js + Python AI service. Read `PRODUCT_GUIDE.md` for the full product explanation; ERD and JSON schema reflect the APBD source columns and migration.
+**Status:** APBD and public-facility data implementation baseline. Facility sources include OpenStreetMap, DKI Jakarta school distribution data, and Perumda Pasar Jaya market-location data; hospital data is excluded. Read `PRODUCT_GUIDE.md` for the full product explanation.
 
 ## 1. Product purpose
 TeraPublic is a civic-tech platform for transparency of public data, monitoring of regions, public facilities, and source-backed APBD records. The APBD module uses the eight columns present in its source dataset and does not infer project-level records or budget aggregates. The pilot scope is DKI Jakarta. For the full product vision, user journeys, public/admin screens, feature behaviour, MVP acceptance checklist, and explicit non-goals, read `PRODUCT_GUIDE.md` first.
@@ -34,6 +34,9 @@ Next.js owns page rendering, UI state, and API calls. Laravel owns API authoriza
 
 ## 4. Core data management decisions
 - Managed records include administrative regions, public facilities, and APBD dataset rows.
+- Facilities retain shared identity/version/publication data in `facilities` and `facility_versions`; school and market attributes live in one-to-one detail tables. Original source rows are retained in `source_original_data`.
+- Facility drafts may have an unmapped region and retain source locality names; validation/publication requires a currently published, valid region. Region geometries are stored only when supplied by a valid administrative-boundary source. OSM facility GeoJSON is not an administrative boundary.
+- Market data from different periods (including 2024 and 2025) remains independently versioned and is not deduplicated by name.
 - Regions and facilities can be manually entered or imported; APBD rows can be manually entered or imported from supported CSV/XLSX files.
 - General cross-topic datasets use metadata and flexible row storage only where appropriate. Validate JSONB usage against actual MVP data size and query needs.
 - Record source attribution and import provenance where applicable: source name/URL, source type, license/attribution, import job, raw file/source row.

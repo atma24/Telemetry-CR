@@ -100,6 +100,10 @@ The exact namespace/folder can be made more domain-oriented if it stays autoload
 
 ### Facilities and APBD
 - Support manual entry and import for facilities. APBD rows accept manual entry and CSV/XLSX imports against the eight source columns: `periode_data`, `tanggal`, `kode_opd`, `nama_opd`, `akun_jenis`, `nama_akun`, `anggaran`, and `realisasi`.
+- Facility details share one controller/service/versioning flow. School and market-specific values belong in one-to-one detail tables; OSM tags belong in `facility_versions.attributes`, source identity is source-prefixed, and raw rows remain in `source_original_data`. Do not merge cross-source records without verification or deduplicate period-specific market rows by name.
+- Source mapping: schools use `nama_sekolah`/`alamat`/`latitude`/`longitude` for common fields and keep school identifiers, counts, principal, phone, accreditation, period, and source locality names in `schools`; markets use `nama_pasar`/`alamat`, map `koordinat_x` to latitude and `koordinat_y` to longitude, and retain period, region, district, village, postal code, and phone in `market_locations`. Audit coordinate values against the source before import; do not infer a swapped axis order from labels alone.
+- OSM `@id` is stored as a source-prefixed `facilities.external_key`; OSM name, address, category, and coordinates are common fields. Preserve accessibility and other OSM tags in `attributes`. GeoJSON containing facility features is not a source of region boundaries.
+- Unmapped source locality values remain on detail rows. Drafts can lack `region_id`; validation/publication requires a published mapped region. Store region geometry only when a source provides actual administrative boundaries.
 - Store structured fields needed for filtering/reporting in typed columns.
 - Store less common/source-specific attributes in JSONB only when justified by actual datasets.
 - Retain original imported values and source references.

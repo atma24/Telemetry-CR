@@ -16,6 +16,9 @@ class UpdateRegionRequest extends FormRequest
      *     name?: string,
      *     level?: string,
      *     parent_region_id?: string|null,
+     *     geometry?: array<string, mixed>|null,
+     *     centroid_latitude?: numeric-string|float|null,
+     *     centroid_longitude?: numeric-string|float|null,
      *     source_id?: string|null,
      *     source_original_data?: array<string, mixed>|null
      * }
@@ -41,6 +44,12 @@ class UpdateRegionRequest extends FormRequest
                     throw ValidationException::withMessages(['region' => 'Validated region attributes have an invalid shape.']);
                 }
 
+                $attributes[$field] = $validated[$field];
+            }
+        }
+
+        foreach (['geometry', 'centroid_latitude', 'centroid_longitude'] as $field) {
+            if (array_key_exists($field, $validated)) {
                 $attributes[$field] = $validated[$field];
             }
         }
@@ -78,6 +87,9 @@ class UpdateRegionRequest extends FormRequest
             'parent_region_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('regions', 'id')],
             'source_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('data_sources', 'id')],
             'source_original_data' => ['sometimes', 'nullable', 'array'],
+            'geometry' => ['sometimes', 'nullable', 'array'],
+            'centroid_latitude' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
+            'centroid_longitude' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
         ];
     }
 
@@ -85,7 +97,7 @@ class UpdateRegionRequest extends FormRequest
     public function after(): array
     {
         return [function (Validator $validator): void {
-            $fields = ['code', 'name', 'level', 'parent_region_id', 'source_id', 'source_original_data'];
+            $fields = ['code', 'name', 'level', 'parent_region_id', 'geometry', 'centroid_latitude', 'centroid_longitude', 'source_id', 'source_original_data'];
 
             if (array_intersect($fields, array_keys($this->all())) === []) {
                 $validator->errors()->add('region', 'At least one region field must be provided.');

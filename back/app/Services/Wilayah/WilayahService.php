@@ -94,7 +94,7 @@ class WilayahService
             $region = Wilayah::query()->whereKey($regionId)->lockForUpdate()->firstOrFail();
             $latest = $region->versi()->orderByDesc('version_no')->lockForUpdate()->firstOrFail();
             $data = array_merge($latest->only([
-                'code', 'name', 'level', 'parent_region_id', 'source_id', 'source_original_data',
+                'code', 'name', 'level', 'parent_region_id', 'geometry', 'centroid_latitude', 'centroid_longitude', 'source_id', 'source_original_data',
             ]), $attributes);
 
             $this->assertHierarchy($data['level'], $data['parent_region_id']);

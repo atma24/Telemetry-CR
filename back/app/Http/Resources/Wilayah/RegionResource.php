@@ -22,6 +22,9 @@ class RegionResource extends JsonResource
             'code' => $this->code,
             'name' => $this->name,
             'level' => $this->level,
+            'geometry' => $this->geometry,
+            'centroid_latitude' => $this->centroid_latitude,
+            'centroid_longitude' => $this->centroid_longitude,
             'parent_region_id' => $this->parent_region_id,
             'parent' => $this->whenLoaded('wilayahInduk', function (): ?array {
                 $parentVersion = $this->wilayahInduk?->versiTerpublikasi;

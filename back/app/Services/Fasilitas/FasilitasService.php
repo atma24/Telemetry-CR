@@ -13,7 +13,7 @@ class FasilitasService
     {
         return Fasilitas::query()
             ->whereHas('versiTerpublikasi')
-            ->with('versiTerpublikasi')
+            ->with(['versiTerpublikasi.sekolah', 'versiTerpublikasi.lokasiPasar'])
             ->orderBy(VersiFasilitas::query()
                 ->select('name')
                 ->whereColumn('facility_id', 'facilities.id')
@@ -27,7 +27,7 @@ class FasilitasService
         return Fasilitas::query()
             ->whereKey($facilityId)
             ->whereHas('versiTerpublikasi')
-            ->with('versiTerpublikasi')
+            ->with(['versiTerpublikasi.sekolah', 'versiTerpublikasi.lokasiPasar'])
             ->firstOrFail();
     }
 }

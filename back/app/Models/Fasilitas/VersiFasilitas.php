@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -111,5 +112,17 @@ class VersiFasilitas extends Model
     public function peninjau(): BelongsTo
     {
         return $this->belongsTo(Pengguna::class, 'reviewed_by');
+    }
+
+    /** @return HasOne<Sekolah, $this> */
+    public function sekolah(): HasOne
+    {
+        return $this->hasOne(Sekolah::class, 'facility_version_id');
+    }
+
+    /** @return HasOne<LokasiPasar, $this> */
+    public function lokasiPasar(): HasOne
+    {
+        return $this->hasOne(LokasiPasar::class, 'facility_version_id');
     }
 }

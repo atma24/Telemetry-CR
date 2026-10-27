@@ -1,11 +1,13 @@
 {
   "spec_name": "TeraPublic Conceptual Database Schema",
-  "spec_version": "1.4-apbd-queued-imports",
-  "status": "apbd-module",
+  "spec_version": "1.5-facility-detail-models",
+  "status": "apbd-and-facility-modules",
   "database": "PostgreSQL",
   "notes": [
     "This is a conceptual schema, not executable DDL or Laravel migrations.",
     "Laravel migrations and Eloquent own the operational product schema.",
+    "Facility sources include OSM GeoJSON, DKI school data, and Pasar Jaya market data; hospital data is excluded.",
+    "School and market data use typed one-to-one detail tables; raw source rows remain on facility versions.",
     "APBD records use the eight source dataset columns plus publication and provenance fields.",
     "The source fingerprint is indexed but non-unique; it reports duplicate candidates and never defines an APBD natural key.",
     "Project migrations remain historical; the forward-only APBD migration removes project tables and detaches legacy project feedback targets.",
@@ -242,6 +244,21 @@
           "name": "published_at",
           "type": "timestamptz",
           "nullable": true
+        },
+        {
+          "name": "geometry",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "centroid_latitude",
+          "type": "numeric(10,7)",
+          "nullable": true
+        },
+        {
+          "name": "centroid_longitude",
+          "type": "numeric(10,7)",
+          "nullable": true
         }
       ],
       "constraints": [
@@ -372,7 +389,7 @@
           "name": "region_id",
           "type": "uuid",
           "fk": "regions.id",
-          "required": true
+          "nullable": true
         },
         {
           "name": "address",
@@ -438,6 +455,37 @@
         "unique(facility_id, version_no)",
         "Latitude and longitude must be in valid ranges when present",
         "At most one current published version per facility"
+      ]
+    },
+    {
+      "name": "schools",
+      "purpose": "Typed optional school details linked to a facility version",
+      "fields": [
+        {"name": "id", "type": "uuid", "pk": true},
+        {"name": "facility_version_id", "type": "uuid", "fk": "facility_versions.id", "required": true, "unique": true},
+        {"name": "periode_data", "type": "varchar", "nullable": true},
+        {"name": "npsn", "type": "varchar", "nullable": true},
+        {"name": "kelurahan_sumber", "type": "varchar", "nullable": true},
+        {"name": "kecamatan_sumber", "type": "varchar", "nullable": true},
+        {"name": "jumlah_siswa", "type": "integer", "nullable": true},
+        {"name": "jumlah_guru", "type": "integer", "nullable": true},
+        {"name": "kepala_sekolah", "type": "varchar", "nullable": true},
+        {"name": "telp_sekolah", "type": "varchar", "nullable": true},
+        {"name": "akreditasi", "type": "varchar", "nullable": true}
+      ]
+    },
+    {
+      "name": "market_locations",
+      "purpose": "Typed optional market details linked to a facility version",
+      "fields": [
+        {"name": "id", "type": "uuid", "pk": true},
+        {"name": "facility_version_id", "type": "uuid", "fk": "facility_versions.id", "required": true, "unique": true},
+        {"name": "periode_data", "type": "varchar", "nullable": true},
+        {"name": "wilayah_sumber", "type": "varchar", "nullable": true},
+        {"name": "kecamatan_sumber", "type": "varchar", "nullable": true},
+        {"name": "kelurahan_sumber", "type": "varchar", "nullable": true},
+        {"name": "kode_pos", "type": "varchar", "nullable": true},
+        {"name": "telepon", "type": "varchar", "nullable": true}
       ]
     },
     {
@@ -1125,6 +1173,13 @@
       "description": "Version history for facility identity"
     },
     {
+      "from": "facility_versions",
+      "to": "schools/market_locations",
+      "cardinality": "1:0..1",
+      "via": "facility_version_id",
+      "description": "Facility-version-specific typed details"
+    },
+    {
       "from": "apbd",
       "to": "apbd",
       "cardinality": "1:N optional self-reference",
@@ -1237,6 +1292,9 @@
     "Do not infer a unique constraint from any combination of APBD dataset columns.",
     "APBD corrections preserve the previous published row until the draft revision is validated and published.",
     "New data is drafted, validated, then published.",
+    "Facility drafts may be unmapped; validation/publication requires a published mapped region.",
+    "OSM facility GeoJSON is not an administrative boundary geometry source.",
+    "Market locations from different periods are retained and are not deduplicated by name.",
     "Corrections preserve original source data and history.",
     "Public reads expose published versions only.",
     "ML must use curated task-specific data after dataset audit, not every table by default.",

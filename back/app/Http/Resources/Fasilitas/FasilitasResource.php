@@ -27,6 +27,8 @@ class FasilitasResource extends JsonResource
             'latitude' => $versi?->latitude,
             'longitude' => $versi?->longitude,
             'attributes' => $versi?->attributes,
+            'school' => $versi?->relationLoaded('sekolah') ? $versi->sekolah : null,
+            'market_location' => $versi?->relationLoaded('lokasiPasar') ? $versi->lokasiPasar : null,
             'published_at' => $versi?->published_at?->toDateTimeString(),
         ];
     }

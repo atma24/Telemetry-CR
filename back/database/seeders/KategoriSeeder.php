@@ -15,6 +15,8 @@ class KategoriSeeder extends Seeder
         ['name' => 'Transportasi', 'slug' => 'transportasi'],
         ['name' => 'Lingkungan', 'slug' => 'lingkungan'],
         ['name' => 'Pendidikan', 'slug' => 'pendidikan'],
+        ['name' => 'Sekolah', 'slug' => 'sekolah'],
+        ['name' => 'Pasar', 'slug' => 'pasar'],
         ['name' => 'Ekonomi', 'slug' => 'ekonomi'],
     ];
 

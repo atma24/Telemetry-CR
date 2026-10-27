@@ -31,7 +31,7 @@ use Illuminate\Support\Carbon;
  * @property-read Wilayah|null $wilayahInduk
  */
 #[Fillable([
-    'version_no', 'code', 'name', 'level', 'parent_region_id', 'source_id', 'import_job_id',
+    'version_no', 'code', 'name', 'level', 'parent_region_id', 'geometry', 'centroid_latitude', 'centroid_longitude', 'source_id', 'import_job_id',
     'source_original_data', 'publication_status', 'created_by', 'reviewed_by', 'published_at',
 ])]
 class VersiWilayah extends Model
@@ -53,6 +53,9 @@ class VersiWilayah extends Model
         return [
             'version_no' => 'integer',
             'source_original_data' => 'array',
+            'geometry' => 'array',
+            'centroid_latitude' => 'decimal:7',
+            'centroid_longitude' => 'decimal:7',
             'publication_status' => PublicationStatus::class,
             'published_at' => 'datetime',
         ];

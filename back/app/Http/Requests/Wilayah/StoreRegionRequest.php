@@ -15,6 +15,9 @@ class StoreRegionRequest extends FormRequest
      *     name: string,
      *     level: string,
      *     parent_region_id?: string|null,
+     *     geometry?: array<string, mixed>|null,
+     *     centroid_latitude?: numeric-string|float|null,
+     *     centroid_longitude?: numeric-string|float|null,
      *     source_id?: string|null,
      *     source_original_data?: array<string, mixed>|null
      * }
@@ -34,6 +37,7 @@ class StoreRegionRequest extends FormRequest
         $parentRegionId = $validated['parent_region_id'] ?? null;
         $sourceId = $validated['source_id'] ?? null;
         $sourceOriginalData = $validated['source_original_data'] ?? null;
+        $geometry = $validated['geometry'] ?? null;
 
         if (($parentRegionId !== null && ! is_string($parentRegionId))
             || ($sourceId !== null && ! is_string($sourceId))
@@ -46,6 +50,9 @@ class StoreRegionRequest extends FormRequest
             'name' => $validated['name'],
             'level' => $validated['level'],
             'parent_region_id' => $parentRegionId,
+            'geometry' => $geometry,
+            'centroid_latitude' => $validated['centroid_latitude'] ?? null,
+            'centroid_longitude' => $validated['centroid_longitude'] ?? null,
             'source_id' => $sourceId,
             'source_original_data' => $sourceOriginalData,
         ];
@@ -78,6 +85,9 @@ class StoreRegionRequest extends FormRequest
             ],
             'source_id' => ['nullable', 'uuid', Rule::exists('data_sources', 'id')],
             'source_original_data' => ['nullable', 'array'],
+            'geometry' => ['sometimes', 'nullable', 'array'],
+            'centroid_latitude' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
+            'centroid_longitude' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
         ];
     }
 }

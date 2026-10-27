@@ -39,7 +39,7 @@ class UpdateFasilitasRequest extends FormRequest
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'category_id' => ['sometimes', 'required', 'uuid', Rule::exists('categories', 'id')],
-            'region_id' => ['sometimes', 'required', 'uuid', Rule::exists('regions', 'id')],
+            'region_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('regions', 'id')],
             'address' => ['sometimes', 'nullable', 'string', 'max:10000'],
             'latitude' => ['sometimes', 'nullable', 'numeric', 'decimal:0,7', 'between:-90,90'],
             'longitude' => ['sometimes', 'nullable', 'numeric', 'decimal:0,7', 'between:-180,180'],
